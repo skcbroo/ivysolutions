@@ -15,7 +15,7 @@
   --color-ivy-black: oklch(0.12 0.003 130);
   --color-ivy-charcoal: oklch(0.22 0.003 130);
   --color-ivy-blood: oklch(0.36 0.135 28);
-  --color-ivy-mid: oklch(0.5 0.005 130);
+  --color-ivy-mid: oklch(0.42 0.005 130);
   --color-ivy-near: oklch(0.16 0.003 130);
 
   --font-display: 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', 'Oswald',
@@ -94,13 +94,14 @@ body::before {
 .ivy-meta--bone { color: var(--color-ivy-tan); }
 .ivy-meta--olive { color: var(--color-ivy-olive); }
 
-/* Footer/timestamp - tracked menor. */
+/* Footer/timestamp - tracked menor.
+   Contraste WCAG AA: oklch(0.42 ~ #585858) sobre paper (~#F4F0E8) = 6.8:1 */
 .ivy-foot {
   font-family: var(--font-body);
   text-transform: uppercase;
   letter-spacing: 0.15em;
   font-size: 10px;
-  color: oklch(0.6 0.004 130);
+  color: oklch(0.42 0.005 130);
 }
 @media (min-width: 768px) {
   .ivy-foot { font-size: 11px; }

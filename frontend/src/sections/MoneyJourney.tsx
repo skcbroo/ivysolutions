@@ -1,10 +1,33 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { useScrollProgress } from '../hooks/useScrollProgress'
 import { StaticFallback } from '../three/StaticFallback'
 
 const MoneyScene = lazy(() =>
   import('../three/MoneyScene').then((m) => ({ default: m.MoneyScene })),
 )
+
+/** Adia a montagem do Canvas R3F até a seção estar próxima da viewport.
+ *  Cortamos o parse de three.js (~720kb minified) do caminho crítico do FCP/LCP. */
+function useNearViewport<T extends HTMLElement>(rootMargin = '600px') {
+  const ref = useRef<T | null>(null)
+  const [near, setNear] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || near) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setNear(true)
+          io.disconnect()
+        }
+      },
+      { rootMargin },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [near, rootMargin])
+  return { ref, near }
+}
 
 const PANELS = [
   {
@@ -39,13 +62,21 @@ const PANELS = [
 
 export function MoneyJourney() {
   const { ref, progress } = useScrollProgress<HTMLDivElement>()
+  const { ref: nearRef, near } = useNearViewport<HTMLDivElement>('600px')
   const reducedMotion = usePrefersReducedMotion()
   const activeIdx = Math.min(3, Math.floor(progress * 4))
+  const shouldMount3D = near && !reducedMotion
+
+  // Combina ambos os refs no mesmo elemento
+  const combinedRef = (el: HTMLDivElement | null) => {
+    ref.current = el
+    nearRef.current = el
+  }
 
   return (
     <section id="protocolo">
       <div
-        ref={ref}
+        ref={combinedRef}
         className="relative"
         style={{
           height: '500vh',
@@ -56,7 +87,7 @@ export function MoneyJourney() {
           className="sticky top-0 w-full overflow-hidden ivy-scanlines"
           style={{ height: '100vh' }}
         >
-          {!reducedMotion ? (
+          {shouldMount3D ? (
             <Suspense fallback={<StaticFallback />}>
               <MoneyScene progress={progress} />
             </Suspense>
