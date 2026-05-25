@@ -41,7 +41,7 @@ export async function notifyLead(lead: LeadEmail) {
   const from = config.LEAD_FROM_EMAIL || config.SMTP_USER!
   const html = `
     <div style="font-family: -apple-system, sans-serif; color: #1A1A1A; line-height: 1.5;">
-      <h2 style="font-family: Impact, sans-serif; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 3px solid #3D4A3A; padding-bottom: 8px;">Novo briefing — IVY</h2>
+      <h2 style="font-family: Impact, sans-serif; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 3px solid #3D4A3A; padding-bottom: 8px;">Novo lead — IVY</h2>
       <table style="border-collapse: collapse; margin-top: 16px;">
         <tr><td style="padding: 6px 16px 6px 0; color: #6B6B6B; text-transform: uppercase; font-size: 11px; letter-spacing: 0.2em;">Nome</td><td style="padding: 6px 0;">${escapeHtml(lead.name)}</td></tr>
         <tr><td style="padding: 6px 16px 6px 0; color: #6B6B6B; text-transform: uppercase; font-size: 11px; letter-spacing: 0.2em;">E-mail</td><td style="padding: 6px 0;"><a href="mailto:${escapeHtml(lead.email)}">${escapeHtml(lead.email)}</a></td></tr>
@@ -59,7 +59,7 @@ export async function notifyLead(lead: LeadEmail) {
       from: `"IVY · Briefing" <${from}>`,
       to: config.LEAD_TO_EMAIL,
       replyTo: lead.email,
-      subject: `[IVY] Novo briefing — ${lead.name}`,
+      subject: `[IVY] Novo lead — ${lead.name}`,
       text: `Nome: ${lead.name}\nE-mail: ${lead.email}\nTelefone: ${formatPhoneBR(lead.phone)}`,
       html,
     })
