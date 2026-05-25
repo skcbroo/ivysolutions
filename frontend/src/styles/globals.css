@@ -1,0 +1,207 @@
+@import 'tailwindcss';
+
+/*
+  IVY — tokens travados pelo Manual de Marca v1.0 + impeccable DESIGN.md.
+  OKLCH com leve tint na hue olive (~130) para todos os neutros, garantindo
+  cor coerente sem #000/#fff puros. Sangue jamais como fundo.
+*/
+@theme {
+  --color-ivy-olive: oklch(0.32 0.025 130);
+  --color-ivy-olive-2: oklch(0.23 0.02 130);
+  --color-ivy-paper: oklch(0.94 0.012 90);
+  --color-ivy-bone: oklch(0.91 0.018 88);
+  --color-ivy-tan: oklch(0.72 0.03 80);
+  --color-ivy-sand: oklch(0.83 0.028 84);
+  --color-ivy-black: oklch(0.12 0.003 130);
+  --color-ivy-charcoal: oklch(0.22 0.003 130);
+  --color-ivy-blood: oklch(0.36 0.135 28);
+  --color-ivy-mid: oklch(0.5 0.005 130);
+  --color-ivy-near: oklch(0.16 0.003 130);
+
+  --font-display: 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', 'Oswald',
+    sans-serif;
+  --font-body: 'Trebuchet MS', 'Lucida Grande', 'Lucida Sans Unicode',
+    'Helvetica Neue', Arial, sans-serif;
+
+  --ease-ivy: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --shadow-stamp: none;
+  --radius-none: 0;
+}
+
+:root {
+  --page-gutter: clamp(20px, 5vw, 96px);
+  --rule: 1px solid var(--color-ivy-tan);
+}
+
+html {
+  background: var(--color-ivy-paper);
+  color: var(--color-ivy-near);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-variant-ligatures: none;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  line-height: 1.65;
+  font-size: clamp(15px, 1.05vw, 17px);
+  color: oklch(0.34 0.005 130);
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--color-ivy-olive);
+  color: var(--color-ivy-bone);
+}
+
+/* Barra olive fixa no topo do site (não da seção - do site). */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 6px;
+  background: var(--color-ivy-olive);
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* Display brutalist - Impact. SEMPRE caps. */
+.ivy-display {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 0.92;
+  font-weight: 400;
+}
+
+/* Metadata strip - Trebuchet UPPERCASE tracked. NÃO é mono. */
+.ivy-meta {
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 11px;
+  color: var(--color-ivy-mid);
+  font-weight: 400;
+}
+@media (min-width: 768px) {
+  .ivy-meta { font-size: 12px; }
+}
+
+.ivy-meta--bone { color: var(--color-ivy-tan); }
+.ivy-meta--olive { color: var(--color-ivy-olive); }
+
+/* Footer/timestamp - tracked menor. */
+.ivy-foot {
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 10px;
+  color: oklch(0.6 0.004 130);
+}
+@media (min-width: 768px) {
+  .ivy-foot { font-size: 11px; }
+}
+
+/* Texture: paper noise via SVG inline. Apenas em superfícies paper. */
+.ivy-paper-noise {
+  background-color: var(--color-ivy-paper);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.5' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.24 0 0 0 0 0.29 0 0 0 0 0.23 0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.035'/></svg>");
+  background-repeat: repeat;
+}
+
+/* Scanlines em superfícies pretas. */
+.ivy-scanlines {
+  background-color: var(--color-ivy-black);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 3px,
+    oklch(1 0 0 / 0.025) 3px,
+    oklch(1 0 0 / 0.025) 4px
+  );
+}
+
+/* Barra vertical sangue, manual seção 02. */
+.ivy-bar-blood {
+  position: relative;
+  padding-left: clamp(16px, 2vw, 28px);
+}
+.ivy-bar-blood::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.1em;
+  bottom: 0.1em;
+  width: 4px;
+  background: var(--color-ivy-blood);
+}
+
+/* Barra olive após h1 de seção, manual seção 05. */
+.ivy-rule-olive {
+  width: clamp(48px, 6vw, 80px);
+  height: 3px;
+  background: var(--color-ivy-olive);
+  margin: 0;
+  border: 0;
+}
+
+/* Marcador quadrado ■, manual seção 05. */
+.ivy-list { list-style: none; padding: 0; margin: 0; }
+.ivy-list li {
+  position: relative;
+  padding-left: 1.4em;
+  margin-bottom: 0.75em;
+}
+.ivy-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 8px;
+  height: 8px;
+  background: var(--color-ivy-olive);
+}
+
+/* Redação FOIA - barras pretas sólidas cobrindo identificadores.
+   O span é inline puro com texto invisível: alinhamento herdado do
+   line-height do texto ao redor, sem hack de vertical-align. */
+.ivy-redact {
+  background: var(--color-ivy-near);
+  color: transparent;
+  padding: 0 0.2em;
+  margin: 0 0.05em;
+  user-select: none;
+  letter-spacing: 0;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Cursores padrão: pointer em ações, text em inputs. */
+a, button, [role='button'] {
+  cursor: pointer;
+}
+input, textarea {
+  cursor: text;
+}
+
+/* Respeita reduced-motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Container interno respeitando margens documentais. */
+.ivy-page {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding-inline: var(--page-gutter);
+}
