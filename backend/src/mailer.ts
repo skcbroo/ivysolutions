@@ -52,7 +52,10 @@ export async function notifyLead(lead: LeadEmail) {
   `
 
   try {
-    await t.sendMail({
+    console.log(
+      `[mailer] tentando enviar para ${config.LEAD_TO_EMAIL} via ${config.SMTP_HOST}:${config.SMTP_PORT}`,
+    )
+    const info = await t.sendMail({
       from: `"IVY · Briefing" <${from}>`,
       to: config.LEAD_TO_EMAIL,
       replyTo: lead.email,
@@ -60,6 +63,7 @@ export async function notifyLead(lead: LeadEmail) {
       text: `Nome: ${lead.name}\nE-mail: ${lead.email}\nTelefone: ${formatPhoneBR(lead.phone)}`,
       html,
     })
+    console.log(`[mailer] envio ok — messageId=${info.messageId}`)
   } catch (err) {
     console.error('[mailer] envio falhou:', err)
   }
