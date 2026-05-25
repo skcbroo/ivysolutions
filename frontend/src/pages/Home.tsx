@@ -13,7 +13,7 @@ export function Home() {
     title: 'IVY · Recuperação de Ativos — Inteligência aplicada a crédito travado',
     description:
       'Inteligência de dados e operações de campo para localizar patrimônio oculto de devedores contumazes. A IVY atua onde a cobrança convencional parou.',
-    canonical: 'https://ivy.com.br/',
+    canonical: 'https://www.ivysolutions.com.br/',
   })
 
   const { hash } = useLocation()

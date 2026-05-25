@@ -7,7 +7,7 @@ export function About() {
     title: 'Sobre a IVY · Operadores de recuperação',
     description:
       'A IVY é formada por ex-agentes de forças de segurança, analistas de OSINT e investigadores patrimoniais. Atuamos onde a cobrança convencional parou.',
-    canonical: 'https://ivy.com.br/sobre',
+    canonical: 'https://www.ivysolutions.com.br/sobre',
   })
 
   useEffect(() => {

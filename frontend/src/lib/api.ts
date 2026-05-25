@@ -1,8 +1,6 @@
 /**
- * Base URL da API. Em dev fica vazio (Vite proxia /api → backend local).
- * Em produção, VITE_API_URL é injetada no build do Docker (Railway build arg)
- * apontando para o domínio público do backend.
+ * Em dev: Vite proxia /api → backend local (vite.config.ts)
+ * Em prod: nginx do frontend proxia /api → backend Railway (nginx.conf.template)
+ * Mesmo origin nos dois casos — zero CORS no browser.
  */
-const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
-
-export const apiUrl = (path: string) => `${API_BASE}${path}`
+export const apiUrl = (path: string) => path

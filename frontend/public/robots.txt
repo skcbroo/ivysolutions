@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ivy.com.br/sitemap.xml
+Sitemap: https://www.ivysolutions.com.br/sitemap.xml
