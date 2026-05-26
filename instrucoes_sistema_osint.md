@@ -3,7 +3,15 @@
 
 **Versão:** 2.0 | **Data:** 25/05/2026  
 **Stack:** React + Node.js/Express + PostgreSQL  
-**Requisitos:** Node.js ≥ 18, PostgreSQL ≥ 14
+**Requisitos:** Node.js ≥ 18, PostgreSQL ≥ 14  
+**Acesso:** Restrito a usuários internos (analistas) — **não expor a clientes**
+
+---
+
+## PÚBLICO-ALVO E ACESSO
+
+> **Este sistema é de uso exclusivo de analistas internos.**  
+> Não deve ser acessível a clientes finais. O acesso deve ser restrito por rede (VPN ou IP allowlist) e/ou autenticação interna, garantindo que apenas a equipe de análise opere a ferramenta.
 
 ---
 
@@ -596,7 +604,7 @@ O relatório gerado inclui os links diretos com o nome pré-preenchido na URL pa
 | Re-rodar investigação | Novo endpoint `POST /api/investigacoes/:id/rerun` |
 | Comparar duas datas | Diff entre investigacoes do mesmo CPF |
 | Exportar PDF | `pandoc relatorio.md -o relatorio.pdf` via endpoint |
-| Autenticação | JWT simples ou sessão — proteger acesso ao sistema |
+| Autenticação | JWT simples ou sessão — **obrigatório** para uso em produção (acesso interno apenas) |
 | Companies House UK | Adicionar `apis/companieshouse.ts` + bloco na migration |
 | Notificação por email | Enviar email quando investigação concluir |
 | Busca por co-sócios | Botão "Investigar este sócio" dentro da aba QSA |
