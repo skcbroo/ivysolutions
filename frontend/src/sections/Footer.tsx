@@ -84,7 +84,7 @@ export function Footer() {
         </nav>
       </div>
       <div
-        className="ivy-page pt-6 pb-10"
+        className="ivy-page pt-6 pb-10 flex items-baseline justify-between gap-6 flex-wrap"
         style={{
           borderTop: '1px solid oklch(0.72 0.03 80 / 0.35)',
         }}
@@ -95,6 +95,26 @@ export function Footer() {
         >
           © 2026 IVY
         </p>
+        <a
+          href="/osint"
+          className="ivy-foot"
+          style={{
+            color: 'var(--color-ivy-tan)',
+            textDecoration: 'none',
+            opacity: 0.7,
+            letterSpacing: '0.25em',
+            transition: 'opacity 180ms var(--ease-ivy)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = '1'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = '0.7'
+          }}
+          title="Acesso restrito a analistas"
+        >
+          Acesso operacional →
+        </a>
       </div>
     </footer>
   )

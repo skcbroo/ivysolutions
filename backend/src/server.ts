@@ -1,44 +1,18 @@
-import Fastify from 'fastify'
-import cors from '@fastify/cors'
-import rateLimit from '@fastify/rate-limit'
-import { config, isProd } from './config.js'
+import { buildApp } from './app.js'
+import { bootstrapAdmin } from './auth/bootstrap.js'
+import { config } from './config.js'
 import { pool, runMigrations } from './db.js'
-import { leadRoutes } from './routes/leads.js'
+import { reapOrphanedRuns } from './worker.js'
 
 async function start() {
-  const app = Fastify({
-    logger: {
-      level: isProd ? 'info' : 'debug',
-      transport: isProd
-        ? undefined
-        : { target: 'pino-pretty', options: { colorize: true } },
-    },
-    trustProxy: true,
-    bodyLimit: 32 * 1024, // 32 KB — payload do form é minúsculo
-  })
-
-  await app.register(cors, {
-    origin: config.CORS_ORIGIN.split(',').map((s) => s.trim()),
-    methods: ['POST', 'GET', 'OPTIONS'],
-    credentials: false,
-  })
-
-  await app.register(rateLimit, {
-    max: 10,
-    timeWindow: '1 minute',
-    keyGenerator: (req) =>
-      req.headers['x-forwarded-for']?.toString().split(',')[0].trim() ||
-      req.ip,
-  })
-
-  app.get('/api/health', async () => ({ ok: true, ts: Date.now() }))
-
-  await app.register(leadRoutes, { prefix: '/api' })
+  const app = await buildApp()
 
   try {
     await runMigrations()
+    await bootstrapAdmin()
+    await reapOrphanedRuns()
   } catch (err) {
-    app.log.error(err, 'migration failure — aborting')
+    app.log.error(err, 'boot failure — aborting')
     process.exit(1)
   }
 

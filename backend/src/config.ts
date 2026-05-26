@@ -13,6 +13,23 @@ const Env = z.object({
   SMTP_PASS: z.string().optional(),
   LEAD_TO_EMAIL: z.string().email().optional(),
   LEAD_FROM_EMAIL: z.string().email().optional(),
+
+  // OSINT / auth
+  JWT_SECRET: z.string().min(16, 'JWT_SECRET deve ter pelo menos 16 chars').default('dev-secret-change-me-please-32ch!'),
+  JWT_TTL: z.string().default('12h'),
+  ALLOW_REGISTRATION: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true' || v === '1'),
+  DATAJUD_API_KEY: z
+    .string()
+    .default('APIKey cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw=='),
+
+  // Bootstrap inicial: se nenhum admin ativo existir no DB, cria um a partir
+  // destas vars (no boot do server). Idempotente: rodadas posteriores são no-op.
+  ADMIN_EMAIL: z.string().email().optional(),
+  ADMIN_PASSWORD: z.string().min(8).optional(),
+  ADMIN_NOME: z.string().optional(),
 })
 
 const parsed = Env.safeParse(process.env)
