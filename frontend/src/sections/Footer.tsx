@@ -1,6 +1,6 @@
-const PHONE_DISPLAY = '+55 61 8301-5739'
-const PHONE_TEL = '+556183015739'
-const WHATSAPP_URL = `https://wa.me/556183015739?text=${encodeURIComponent(
+const PHONE_DISPLAY = '+55 61 99591-3312'
+const PHONE_TEL = '+5561995913312'
+const WHATSAPP_URL = `https://wa.me/5561995913312?text=${encodeURIComponent(
   'Olá, gostaria de falar com a IVY sobre uma operação de recuperação.',
 )}`
 

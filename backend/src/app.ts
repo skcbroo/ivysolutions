@@ -6,7 +6,6 @@ import { leadRoutes } from './routes/leads.js'
 import { authRoutes } from './auth/routes.js'
 import { investigacoesRoutes } from './routes/investigacoes.js'
 import { usersRoutes } from './routes/users.js'
-import { debugRoutes } from './routes/debug.js'
 
 /**
  * Constrói a instância Fastify com todas as rotas registradas.
@@ -51,7 +50,6 @@ export async function buildApp(
   await app.register(authRoutes, { prefix: '/api' })
   await app.register(investigacoesRoutes, { prefix: '/api' })
   await app.register(usersRoutes, { prefix: '/api' })
-  await app.register(debugRoutes, { prefix: '/api' })
 
   return app
 }
