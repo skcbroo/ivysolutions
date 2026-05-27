@@ -1,15 +1,12 @@
 import type { FastifyInstance } from 'fastify'
-import { requireAuth } from '../auth/middleware.js'
 import { httpJson } from '../apis/http.js'
 
 /**
  * Endpoint temporário pra diagnosticar bloqueio de IP em APIs externas.
- * Faz uma chamada direta ao endpoint X e devolve status + tamanho + preview.
+ * Sem auth (só faz GET em APIs públicas e devolve metadados).
  * Remover depois de fechar o caso.
  */
 export async function debugRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', requireAuth)
-
   app.get('/debug/comunica', async () => {
     return probe(
       'https://comunicaapi.pje.jus.br/api/v1/comunicacao?nomeParte=Bruno%20Ladeira%20Junqueira&itensPorPagina=100&pagina=1',
