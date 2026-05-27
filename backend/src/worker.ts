@@ -1,6 +1,8 @@
 export { toDate } from './utils/format.js'
 import { runBlock1 } from './blocks/block1.js'
 import { runBlock2 } from './blocks/block2.js'
+import { runBlock3 } from './blocks/block3.js'
+import { config } from './config.js'
 import { generateReport } from './report/generator.js'
 import * as investigacoesRepo from './repos/investigacoes.js'
 import * as empresasRepo from './repos/empresas.js'
@@ -114,8 +116,36 @@ async function runWorkerInner(
   await investigacoesRepo.finalizePjeCount(inv.id, b2.count)
   logger.info(`#${inv.id} bloco2 ok — ${b2.count} processos`)
 
+  // ── BLOCO 3: Análise LLM (opcional, atrás de flag) ──
+  let analises: Map<string, string> | null = null
+  if (config.BLOCK3_ENABLED && config.ANTHROPIC_API_KEY) {
+    await investigacoesRepo.setProgresso(inv.id, {
+      bloco_atual: 'block3',
+      etapa: 'Analisando comunicados (LLM)',
+      atual: 0,
+      total: 1,
+      eta_ms: null,
+    })
+    const b3 = await runBlock3(b2.processos, logger, async (atual, total) => {
+      await investigacoesRepo.setProgresso(inv.id, {
+        bloco_atual: 'block3',
+        etapa: `Analisando processos (${atual}/${total})`,
+        atual,
+        total,
+        eta_ms: null,
+      })
+    })
+    analises = b3.analises
+    if (analises.size > 0) {
+      await processosRepo.updateAnaliseLlm(inv.id, analises)
+    }
+    logger.info(`#${inv.id} bloco3 ok — ${analises.size} análises`)
+  } else {
+    logger.info(`#${inv.id} bloco3 pulado (BLOCK3_ENABLED=${config.BLOCK3_ENABLED ? 'true' : 'false'}, ANTHROPIC_API_KEY=${config.ANTHROPIC_API_KEY ? 'set' : 'missing'})`)
+  }
+
   // ── RELATÓRIO ──
-  const md = generateReport(inv.nome, inv.cpf, b1, b2)
+  const md = generateReport(inv.nome, inv.cpf, b1, b2, analises)
   await relatoriosRepo.upsert(inv.id, md)
 
   await investigacoesRepo.setStatus(inv.id, 'concluido')

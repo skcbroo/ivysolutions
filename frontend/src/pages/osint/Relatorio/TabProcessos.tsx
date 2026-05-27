@@ -250,6 +250,7 @@ function ProcessoRowDesktop({
         <tr style={{ borderBottom: '1px solid var(--color-ivy-rule-subtle)' }}>
           <td />
           <td colSpan={5} style={{ padding: '0 14px 18px 14px' }}>
+            <AnaliseLlm processo={p} />
             <ComunicacoesList processo={p} />
           </td>
         </tr>
@@ -331,6 +332,29 @@ function ProcessoRowMobile({
         </div>
       )}
     </li>
+  )
+}
+
+function AnaliseLlm({ processo }: { processo: InvestigacaoFull['processos'][number] }) {
+  if (!processo.analise_llm) return null
+  return (
+    <div
+      className="mb-4 p-4"
+      style={{
+        background: 'var(--color-ivy-paper-soft, rgba(0,0,0,0.03))',
+        borderLeft: '2px solid var(--color-ivy-olive)',
+      }}
+    >
+      <p
+        className="ivy-foot"
+        style={{ color: 'var(--color-ivy-olive)', letterSpacing: '0.25em', marginBottom: 4 }}
+      >
+        Análise patrimonial
+      </p>
+      <p style={{ color: 'var(--color-ivy-near)', fontSize: 13, lineHeight: 1.5 }}>
+        {processo.analise_llm}
+      </p>
+    </div>
   )
 }
 

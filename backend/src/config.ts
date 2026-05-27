@@ -29,6 +29,14 @@ const Env = z.object({
     .transform((v) => v === 'true' || v === '1'),
   DATAJUD_API_KEY: z.string().optional(),
 
+  // Block 3: análise de comunicados via Claude. Atrás de flag.
+  BLOCK3_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true' || v === '1'),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  CLAUDE_MODEL: z.string().default('claude-haiku-4-5'),
+
   // Bootstrap inicial: se nenhum admin ativo existir no DB, cria um a partir
   // destas vars (no boot do server). Idempotente: rodadas posteriores são no-op.
   ADMIN_EMAIL: z.string().email().optional(),

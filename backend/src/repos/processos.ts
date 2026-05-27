@@ -86,6 +86,20 @@ export async function bulkInsertEmpresasVinculadas(
   }
 }
 
+export async function updateAnaliseLlm(
+  investigacaoId: number,
+  analisesPorNumero: Map<string, string>,
+): Promise<void> {
+  if (analisesPorNumero.size === 0) return
+  for (const [numero, analise] of analisesPorNumero) {
+    await pool.query(
+      `UPDATE processos SET analise_llm = $1
+        WHERE investigacao_id = $2 AND numero = $3`,
+      [analise, investigacaoId, numero],
+    )
+  }
+}
+
 export async function findByInvestigacao(investigacaoId: number) {
   const { rows } = await pool.query(
     `SELECT * FROM processos WHERE investigacao_id = $1 ORDER BY id`,

@@ -6,7 +6,7 @@ const BASE = 'https://comunicaapi.pje.jus.br/api/v1/comunicacao'
 const PAGE_SIZE = 100
 const MAX_PAGES_NAME = 50
 const MAX_PAGES_CPF = 30
-const MAX_PAGES_EMPRESA = 5
+const MAX_PAGES_EMPRESA = 15
 
 type Destinatario = { nome?: string; polo?: 'A' | 'P' | string }
 type DestinatarioAdvogado = {
@@ -52,7 +52,6 @@ export type ComunicaProcesso = {
   comunicacoes: Comunicado[]
 }
 
-const MAX_COMUNICACOES_POR_PROCESSO = 5
 const TEXTO_MAX = 1200
 
 export type ComunicaResult = {
@@ -347,17 +346,15 @@ function ingest(
     if (!existing.empresaVinculada && empresaSinalizada && existing.vinculo === 'empresarial') {
       existing.empresaVinculada = empresaSinalizada
     }
-    // Mantém comunicações ordenadas por data desc, até MAX_COMUNICACOES_POR_PROCESSO únicas.
-    // Sem link: dedup por (data, texto) para não descartar intimações distintas que tenham link=null.
+    // Sem link: dedup por (data, tipo) para não descartar intimações distintas que tenham link=null.
     const dup = comunicado.link
       ? existing.comunicacoes.some((c) => c.link === comunicado.link)
       : existing.comunicacoes.some(
-          (c) => c.link === null && c.data === comunicado.data && c.texto === comunicado.texto,
+          (c) => c.link === null && c.data === comunicado.data && c.tipo === comunicado.tipo,
         )
     if (!dup) {
       existing.comunicacoes.push(comunicado)
       existing.comunicacoes.sort((a, b) => (b.data ?? '').localeCompare(a.data ?? ''))
-      existing.comunicacoes.length = Math.min(existing.comunicacoes.length, MAX_COMUNICACOES_POR_PROCESSO)
     }
   }
 }

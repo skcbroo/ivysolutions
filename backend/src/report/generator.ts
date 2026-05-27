@@ -21,7 +21,13 @@ function truncMd(s: string, max: number): string {
   return single.length > max ? single.slice(0, max - 1) + '…' : single
 }
 
-export function generateReport(nome: string, cpf: string, b1: Block1Result, b2: Block2Result): string {
+export function generateReport(
+  nome: string,
+  cpf: string,
+  b1: Block1Result,
+  b2: Block2Result,
+  analisesLlm?: Map<string, string> | null,
+): string {
   const date = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   const linhas: string[] = []
 
@@ -72,6 +78,11 @@ export function generateReport(nome: string, cpf: string, b1: Block1Result, b2: 
         linhas.push(`#### ${p.numero}`)
         linhas.push(`*${esc(p.classe)}* — ${p.tribunal}${p.orgao ? ` · ${esc(p.orgao)}` : ''}${p.polo ? ` · polo ${p.polo}` : ''}`)
         if (p.link) linhas.push(`[Abrir no tribunal](${p.link})`)
+        const analise = analisesLlm?.get(p.numero)
+        if (analise) {
+          linhas.push('')
+          linhas.push(`**Análise patrimonial:** ${analise}`)
+        }
         if (p.comunicacoes && p.comunicacoes.length > 0) {
           linhas.push('')
           linhas.push('**Últimas comunicações:**')

@@ -5,8 +5,7 @@ import { runWorker } from '../src/worker.js'
 import { resetDomain } from './helpers.js'
 
 const BFF = 'https://bff.cnpja.com'
-const BRASIL = 'https://brasilapi.com.br'
-const OPEN = 'https://open.cnpja.com'
+const WS = 'https://publica.cnpj.ws'
 const COM = 'https://comunicaapi.pje.jus.br'
 
 let agent: MockAgent
@@ -57,17 +56,18 @@ describe('runWorker — orquestração end-to-end com DB real', () => {
     agent.get(BFF).intercept({ path: '/search', method: 'GET', query: { query: '12345678' } }).reply(200, {
       records: [{ score: 1, index: 'office', office: { head: true, taxId: '12345678000190', company: { name: 'EMPRESA TESTE LTDA' } } }],
     })
-    agent.get(BRASIL).intercept({ path: '/api/cnpj/v1/12345678000190' }).reply(200, {
-      cnpj: '12345678000190',
+    agent.get(WS).intercept({ path: '/cnpj/12345678000190' }).reply(200, {
       razao_social: 'EMPRESA TESTE LTDA',
-      descricao_situacao_cadastral: 'ATIVA',
-      capital_social: 500_000,
-      ddd_telefone_1: '1133334444',
-      qsa: [{ nome_socio: 'WORKER E2E', qualificacao_socio: 'Administrador' }],
-    })
-    agent.get(OPEN).intercept({ path: '/office/12345678000190' }).reply(200, {
-      emails: [{ address: 'contato@teste.com.br' }],
-      phones: [{ area: '11', number: '33334444' }],
+      capital_social: '500000',
+      estabelecimento: {
+        cnpj: '12345678000190',
+        situacao_cadastral: 'ATIVA',
+        data_inicio_atividade: '2020-01-01',
+        email: 'contato@teste.com.br',
+        ddd1: '11',
+        telefone1: '33334444',
+      },
+      socios: [{ nome: 'WORKER E2E', qualificacao_socio: { descricao: 'Administrador' } }],
     })
 
     // ── Mock Block2 (Comunica) ──

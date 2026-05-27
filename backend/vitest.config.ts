@@ -12,5 +12,8 @@ export default defineConfig({
     },
     sequence: { hooks: 'list' },
     globalSetup: ['./test/global-setup.ts'],
+    env: {
+      CNPJWS_INTERVAL_MS: '0',
+    },
   },
 })

@@ -59,8 +59,11 @@ export function Perfil() {
       setNovaB('')
       setTouched({})
       const token = getToken()
+      const wasForcedChange = sessionUser?.must_change_password === true
       if (sessionUser && token) setSession(token, { ...sessionUser, must_change_password: false })
       await loadMe()
+      // Primeiro acesso: troca obrigatória cumprida — manda direto pro fluxo normal.
+      if (wasForcedChange) nav('/osint', { replace: true })
     } catch (err) {
       setStatus('error')
       const m = err instanceof Error ? err.message : 'erro desconhecido'

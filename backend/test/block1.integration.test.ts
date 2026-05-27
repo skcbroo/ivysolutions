@@ -6,8 +6,7 @@ let agent: MockAgent
 let prevDispatcher: Dispatcher
 
 const BFF = 'https://bff.cnpja.com'
-const BRASIL = 'https://brasilapi.com.br'
-const OPEN = 'https://open.cnpja.com'
+const WS = 'https://publica.cnpj.ws'
 
 beforeAll(() => {
   prevDispatcher = getGlobalDispatcher()
@@ -28,8 +27,47 @@ afterEach(async () => {
   await agent.close()
 })
 
-describe('runBlock1 — mapeamento completo CPF → empresas', () => {
-  it('happy path: 2 empresas, merge CNPJa Open enriquece email/phones', async () => {
+function wsResponse(opts: {
+  cnpj: string
+  razao: string
+  capital: number
+  situacao?: string
+  email?: string | null
+  ddd?: string
+  telefone?: string
+  ddd2?: string
+  telefone2?: string
+  logradouro?: string
+  numero?: string
+  bairro?: string
+  cep?: string
+}) {
+  return {
+    razao_social: opts.razao,
+    capital_social: String(opts.capital),
+    estabelecimento: {
+      cnpj: opts.cnpj,
+      situacao_cadastral: opts.situacao ?? 'INAPTA',
+      data_inicio_atividade: '2021-08-19',
+      atividade_principal: { id: '6190699', descricao: 'Atividades de telecomunicações' },
+      email: opts.email ?? null,
+      ddd1: opts.ddd ?? null,
+      telefone1: opts.telefone ?? null,
+      ddd2: opts.ddd2 ?? null,
+      telefone2: opts.telefone2 ?? null,
+      logradouro: opts.logradouro ?? null,
+      numero: opts.numero ?? null,
+      bairro: opts.bairro ?? null,
+      cep: opts.cep ?? null,
+      estado: { sigla: 'SP' },
+      cidade: { nome: 'São Paulo' },
+    },
+    socios: [],
+  }
+}
+
+describe('runBlock1 — mapeamento via publica.cnpj.ws', () => {
+  it('happy path: 2 empresas, captura email/telefone/endereço', async () => {
     const personId = 'uuid-fake-1234'
 
     agent
@@ -70,40 +108,29 @@ describe('runBlock1 — mapeamento completo CPF → empresas', () => {
       records: [{ score: 1, index: 'office', office: { head: true, taxId: '11047649000184', company: { name: 'VIACAO CAICARA LTDA' } } }],
     })
 
-    agent.get(BRASIL).intercept({ path: '/api/cnpj/v1/43198710000180' }).reply(200, {
-      cnpj: '43198710000180',
-      razao_social: 'ITAPEMIRIM TRANSPORTE URBANO LTDA',
-      descricao_situacao_cadastral: 'INAPTA',
-      data_inicio_atividade: '2021-08-19',
-      capital_social: 170000000,
-      ddd_telefone_1: '1123401623',
-      ddd_telefone_2: '1123401660',
-      qsa: [
-        { nome_socio: 'SIDNEI PIVA DE JESUS', qualificacao_socio: 'Administrador', data_entrada_sociedade: '2021-08-19' },
-      ],
-    })
-    agent.get(BRASIL).intercept({ path: '/api/cnpj/v1/11047649000184' }).reply(200, {
-      cnpj: '11047649000184',
-      razao_social: 'VIACAO CAICARA LTDA',
-      descricao_situacao_cadastral: 'INAPTA',
-      capital_social: 15500000,
-      ddd_telefone_1: '1146891802',
-      qsa: [],
-    })
-
-    agent.get(OPEN).intercept({ path: '/office/43198710000180' }).reply(200, {
-      taxId: '43198710000180',
-      emails: [{ address: 'nfe.itapemirim@itapemirim.com.br' }],
-      phones: [
-        { area: '11', number: '23401623' },
-        { area: '11', number: '23401660' },
-      ],
-    })
-    agent.get(OPEN).intercept({ path: '/office/11047649000184' }).reply(200, {
-      taxId: '11047649000184',
-      emails: [],
-      phones: [{ area: '11', number: '46891802' }],
-    })
+    agent.get(WS).intercept({ path: '/cnpj/43198710000180' }).reply(
+      200,
+      wsResponse({
+        cnpj: '43198710000180',
+        razao: 'ITAPEMIRIM TRANSPORTE URBANO LTDA',
+        capital: 170000000,
+        email: 'nfe.itapemirim@itapemirim.com.br',
+        ddd: '11',
+        telefone: '23401623',
+        ddd2: '11',
+        telefone2: '23401660',
+      }),
+    )
+    agent.get(WS).intercept({ path: '/cnpj/11047649000184' }).reply(
+      200,
+      wsResponse({
+        cnpj: '11047649000184',
+        razao: 'VIACAO CAICARA LTDA',
+        capital: 15500000,
+        ddd: '11',
+        telefone: '46891802',
+      }),
+    )
 
     const result = await runBlock1('Sidnei Piva de Jesus', '06256739809', async () => {})
 
@@ -116,8 +143,6 @@ describe('runBlock1 — mapeamento completo CPF → empresas', () => {
     expect(itapemirim.nome).toBe('ITAPEMIRIM TRANSPORTE URBANO LTDA')
     expect(itapemirim.capital).toBe(170000000)
     expect(itapemirim.situacao).toBe('INAPTA')
-    expect(itapemirim.cargo).toBe('Administrador')
-    // CNPJa Open trouxe email + 2 phones formatados (BrasilAPI veio sem email)
     expect(itapemirim.emails).toEqual(['nfe.itapemirim@itapemirim.com.br'])
     expect(itapemirim.telefones).toEqual(['(11) 2340-1623', '(11) 2340-1660'])
     expect(itapemirim.email).toBe('nfe.itapemirim@itapemirim.com.br')
@@ -149,7 +174,6 @@ describe('runBlock1 — mapeamento completo CPF → empresas', () => {
   })
 
   it('homônimo estrito: nenhum candidato com CPF compatível → rejeita SEM chutar', async () => {
-    // CPF 08361627146 → slice(3,9) = '616271'. Nenhum candidato bate.
     agent
       .get(BFF)
       .intercept({ path: '/search', method: 'GET', query: { query: 'Gabriel Dantas' } })
@@ -159,7 +183,6 @@ describe('runBlock1 — mapeamento completo CPF → empresas', () => {
           { score: 88888, index: 'person', person: { id: 'errado-2', name: 'Gabriel Dantas', taxId: '***003188**' } },
         ],
       })
-    // O test deve NÃO chamar /person/errado-X — se chamar, o assertNoPendingInterceptors avisa
 
     const result = await runBlock1('Gabriel Dantas', '08361627146', async () => {})
     expect(result.uuid).toBeNull()
@@ -179,7 +202,7 @@ describe('runBlock1 — mapeamento completo CPF → empresas', () => {
     expect(result.warnings.join(' ')).toMatch(/nenhuma pessoa.*encontrada/i)
   })
 
-  it('BrasilAPI 404 cai pra CNPJa Open como fonte primária', async () => {
+  it('cnpj.ws 404 não trava — dados não localizados', async () => {
     const personId = 'pid-1'
     agent.get(BFF).intercept({ path: '/search', method: 'GET', query: { query: 'Fallback Test' } }).reply(200, {
       records: [{ score: 9, index: 'person', person: { id: personId, type: 'NATURAL', name: 'Fallback Test', taxId: '***567398**' } }],
@@ -193,23 +216,14 @@ describe('runBlock1 — mapeamento completo CPF → empresas', () => {
     agent.get(BFF).intercept({ path: '/search', method: 'GET', query: { query: '99999999' } }).reply(200, {
       records: [{ score: 1, index: 'office', office: { head: true, taxId: '99999999000100', company: { name: 'EMPRESA X LTDA' } } }],
     })
-    agent.get(BRASIL).intercept({ path: '/api/cnpj/v1/99999999000100' }).reply(404, { message: 'not found' })
-    agent.get(OPEN).intercept({ path: '/office/99999999000100' }).reply(200, {
-      taxId: '99999999000100',
-      company: { name: 'EMPRESA X LTDA', equity: 500 },
-      status: { text: 'ATIVA' },
-      emails: [{ address: 'contato@x.com.br' }],
-      phones: [{ area: '11', number: '99999999' }],
-      members: [{ person: { name: 'FALLBACK TEST' }, role: { text: 'Sócio' } }],
-    })
+    agent.get(WS).intercept({ path: '/cnpj/99999999000100' }).reply(404, { message: 'not found' })
+    // Fallback scrape também falha — interceptamos cnpjbiz e publica.cnpj.ws scrape como 404.
+    agent.get('https://cnpj.biz').intercept({ path: '/99999999000100' }).reply(404, '')
+    agent.get('https://publica.cnpj.ws').intercept({ path: '/cnpj/99999999000100' }).reply(404, '')
 
     const result = await runBlock1('Fallback Test', '06256739809', async () => {})
     expect(result.empresas).toHaveLength(1)
-    const e = result.empresas[0]
-    expect(e.situacao).toBe('ATIVA')
-    expect(e.capital).toBe(500)
-    expect(e.emails).toEqual(['contato@x.com.br'])
-    expect(e.telefones).toEqual(['(11) 9999-9999'])
+    expect(result.empresas[0].alertas).toContain('dados não localizados')
   })
 
   it('detecta alerta de email pessoal em empresa de alto capital', async () => {
@@ -226,18 +240,51 @@ describe('runBlock1 — mapeamento completo CPF → empresas', () => {
     agent.get(BFF).intercept({ path: '/search', method: 'GET', query: { query: '11111111' } }).reply(200, {
       records: [{ score: 1, index: 'office', office: { head: true, taxId: '11111111000111', company: { name: 'BIG CO LTDA' } } }],
     })
-    agent.get(BRASIL).intercept({ path: '/api/cnpj/v1/11111111000111' }).reply(200, {
-      cnpj: '11111111000111',
-      razao_social: 'BIG CO LTDA',
-      capital_social: 5_000_000,
-      qsa: [],
-    })
-    agent.get(OPEN).intercept({ path: '/office/11111111000111' }).reply(200, {
-      emails: [{ address: 'fulano@gmail.com' }],
-      phones: [],
-    })
+    agent.get(WS).intercept({ path: '/cnpj/11111111000111' }).reply(
+      200,
+      wsResponse({
+        cnpj: '11111111000111',
+        razao: 'BIG CO LTDA',
+        capital: 5_000_000,
+        email: 'fulano@gmail.com',
+      }),
+    )
 
     const result = await runBlock1('Alvo Alto', '06256739809', async () => {})
     expect(result.empresas[0].alertas).toContain('email pessoal em empresa de alto capital')
+  })
+
+  it('detecta endereço compartilhado entre 2 empresas', async () => {
+    const personId = 'pid-end'
+    agent.get(BFF).intercept({ path: '/search', method: 'GET', query: { query: 'Multiplo Lar' } }).reply(200, {
+      records: [{ score: 9, index: 'person', person: { id: personId, type: 'NATURAL', name: 'Multiplo Lar', taxId: '***567398**' } }],
+    })
+    agent.get(BFF).intercept({ path: `/person/${personId}`, method: 'GET' }).reply(200, {
+      id: personId,
+      membership: [
+        { role: { text: 'Sócio' }, company: { id: '22222222', name: 'A LTDA', equity: 100 } },
+        { role: { text: 'Sócio' }, company: { id: '33333333', name: 'B LTDA', equity: 100 } },
+      ],
+    })
+    agent.get(BFF).intercept({ path: '/search', method: 'GET', query: { query: '22222222' } }).reply(200, {
+      records: [{ score: 1, index: 'office', office: { head: true, taxId: '22222222000122', company: { name: 'A LTDA' } } }],
+    })
+    agent.get(BFF).intercept({ path: '/search', method: 'GET', query: { query: '33333333' } }).reply(200, {
+      records: [{ score: 1, index: 'office', office: { head: true, taxId: '33333333000133', company: { name: 'B LTDA' } } }],
+    })
+    const sameAddr = { logradouro: 'Rua das Flores', numero: '100', bairro: 'Centro', cep: '01001-000' }
+    agent.get(WS).intercept({ path: '/cnpj/22222222000122' }).reply(
+      200,
+      wsResponse({ cnpj: '22222222000122', razao: 'A LTDA', capital: 100, ...sameAddr }),
+    )
+    agent.get(WS).intercept({ path: '/cnpj/33333333000133' }).reply(
+      200,
+      wsResponse({ cnpj: '33333333000133', razao: 'B LTDA', capital: 100, ...sameAddr }),
+    )
+
+    const result = await runBlock1('Multiplo Lar', '06256739809', async () => {})
+    expect(result.empresas).toHaveLength(2)
+    expect(result.empresas[0].alertas).toContain('endereço compartilhado em 2 empresas')
+    expect(result.empresas[1].alertas).toContain('endereço compartilhado em 2 empresas')
   })
 })
