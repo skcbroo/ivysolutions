@@ -4,6 +4,12 @@ const Env = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
   DATABASE_URL: z.string().min(1),
+  // SSL no Postgres: padrão true em produção (Railway/managed). Em VPS com
+  // Postgres no mesmo Docker network, defina DATABASE_SSL=false.
+  DATABASE_SSL: z
+    .string()
+    .optional()
+    .transform((v) => v !== 'false' && v !== '0'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
 
   // SMTP (Gmail). Em dev, se nada estiver setado, o email é apenas logado.
