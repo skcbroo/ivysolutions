@@ -4,14 +4,14 @@ import { hashPassword, verifyPassword } from '../src/auth/hash.js'
 
 describe('JWT signing', () => {
   it('sign+verify roundtrip preserva payload', () => {
-    const t = signToken({ userId: 42, email: 'a@b.com' })
+    const t = signToken({ userId: 42, email: 'a@b.com', role: 'analista' })
     expect(t.split('.').length).toBe(3)
     const p = verifyToken(t)
     expect(p.userId).toBe(42)
     expect(p.email).toBe('a@b.com')
   })
   it('verify rejeita token alterado', () => {
-    const t = signToken({ userId: 1, email: 'x@y.com' })
+    const t = signToken({ userId: 1, email: 'x@y.com', role: 'analista' })
     const tampered = t.slice(0, -2) + 'aa'
     expect(() => verifyToken(tampered)).toThrow()
   })

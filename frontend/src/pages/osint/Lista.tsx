@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { OsintLayout } from '../../components/osint/Layout'
 import { StatusBadge } from '../../components/osint/StatusBadge'
@@ -36,6 +36,7 @@ export function Lista() {
   }, [])
 
   useVisibleInterval(load, 5_000)
+  useEffect(() => () => abortRef.current?.abort(), [])
 
   return (
     <OsintLayout

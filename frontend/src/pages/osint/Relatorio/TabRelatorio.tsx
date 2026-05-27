@@ -16,7 +16,9 @@ export function TabRelatorio({ md }: { md: string | null }) {
   const shown = !truncated || expanded ? content : content.slice(0, MD_PREVIEW_CHARS) + '\n\n…'
 
   function copy() {
-    navigator.clipboard.writeText(content)
+    void navigator.clipboard.writeText(content).catch((err) => {
+      console.warn('clipboard indisponível', err)
+    })
   }
   function download() {
     const blob = new Blob([content], { type: 'text/markdown' })
@@ -25,7 +27,8 @@ export function TabRelatorio({ md }: { md: string | null }) {
     a.href = url
     a.download = `relatorio.md`
     a.click()
-    URL.revokeObjectURL(url)
+    // Revoke após o tick atual: revoke imediato pode invalidar o download em alguns browsers.
+    setTimeout(() => URL.revokeObjectURL(url), 0)
   }
   return (
     <>
