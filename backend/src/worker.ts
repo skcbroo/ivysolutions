@@ -25,6 +25,24 @@ export async function runWorker(investigacaoId: number, logger: Logger = console
   await investigacoesRepo.setStatus(inv.id, 'rodando')
   logger.info(`#${inv.id} iniciando — ${inv.nome}`)
 
+  try {
+    await runWorkerInner(inv, logger)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'erro desconhecido'
+    logger.error(`#${inv.id} falhou: ${msg}`)
+    try {
+      await investigacoesRepo.setStatus(inv.id, 'erro', msg)
+    } catch (err2) {
+      logger.error(`#${inv.id} falha ao registrar erro: ${(err2 as Error).message}`)
+    }
+    throw err
+  }
+}
+
+async function runWorkerInner(
+  inv: { id: number; nome: string; cpf: string },
+  logger: Logger,
+): Promise<void> {
   // ── BLOCO 1: Empresas ──
   await investigacoesRepo.setProgresso(inv.id, {
     bloco_atual: 'block1',

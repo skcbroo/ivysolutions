@@ -307,9 +307,14 @@ function ingest(
     if (!existing.empresaVinculada && empresaSinalizada && existing.vinculo === 'empresarial') {
       existing.empresaVinculada = empresaSinalizada
     }
-    // Mantém comunicações ordenadas por data desc, até 5 únicas
-    const sameLink = existing.comunicacoes.some((c) => c.link === comunicado.link)
-    if (!sameLink) {
+    // Mantém comunicações ordenadas por data desc, até MAX_COMUNICACOES_POR_PROCESSO únicas.
+    // Sem link: dedup por (data, texto) para não descartar intimações distintas que tenham link=null.
+    const dup = comunicado.link
+      ? existing.comunicacoes.some((c) => c.link === comunicado.link)
+      : existing.comunicacoes.some(
+          (c) => c.link === null && c.data === comunicado.data && c.texto === comunicado.texto,
+        )
+    if (!dup) {
       existing.comunicacoes.push(comunicado)
       existing.comunicacoes.sort((a, b) => (b.data ?? '').localeCompare(a.data ?? ''))
       existing.comunicacoes.length = Math.min(existing.comunicacoes.length, MAX_COMUNICACOES_POR_PROCESSO)

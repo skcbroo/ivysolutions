@@ -15,15 +15,13 @@ const Env = z.object({
   LEAD_FROM_EMAIL: z.string().email().optional(),
 
   // OSINT / auth
-  JWT_SECRET: z.string().min(16, 'JWT_SECRET deve ter pelo menos 16 chars').default('dev-secret-change-me-please-32ch!'),
-  JWT_TTL: z.string().default('12h'),
+  JWT_SECRET: z.string().min(16, 'JWT_SECRET deve ter pelo menos 16 chars').optional(),
+  JWT_TTL: z.string().default('30d'),
   ALLOW_REGISTRATION: z
     .string()
     .optional()
     .transform((v) => v === 'true' || v === '1'),
-  DATAJUD_API_KEY: z
-    .string()
-    .default('APIKey cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw=='),
+  DATAJUD_API_KEY: z.string().optional(),
 
   // Bootstrap inicial: se nenhum admin ativo existir no DB, cria um a partir
   // destas vars (no boot do server). Idempotente: rodadas posteriores são no-op.
@@ -38,5 +36,16 @@ if (!parsed.success) {
   process.exit(1)
 }
 
-export const config = parsed.data
-export const isProd = config.NODE_ENV === 'production'
+const env = parsed.data
+const isProdEnv = env.NODE_ENV === 'production'
+
+if (!env.JWT_SECRET) {
+  if (isProdEnv) {
+    console.error('[config] JWT_SECRET é obrigatório em produção')
+    process.exit(1)
+  }
+  env.JWT_SECRET = 'dev-secret-change-me-please-32ch!'
+}
+
+export const config = env as typeof env & { JWT_SECRET: string }
+export const isProd = isProdEnv

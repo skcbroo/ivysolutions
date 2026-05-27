@@ -50,7 +50,9 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init: RequestInit & { signal?: AbortSignal } = {}): Promise<T> {
+type RequestOpts = RequestInit & { signal?: AbortSignal; silentAuthFailure?: boolean }
+
+async function request<T>(path: string, init: RequestOpts = {}): Promise<T> {
   const token = getToken()
   const headers: Record<string, string> = {
     'content-type': 'application/json',
@@ -59,11 +61,16 @@ async function request<T>(path: string, init: RequestInit & { signal?: AbortSign
   }
   if (token) headers.authorization = `Bearer ${token}`
 
-  const res = await fetch(path, { ...init, headers })
+  const { silentAuthFailure, ...fetchInit } = init
+  const res = await fetch(path, { ...fetchInit, headers })
   const text = await res.text()
   const body = text ? safeJson(text) : null
   if (!res.ok) {
-    if (res.status === 401) clearSession()
+    // Em chamadas de polling de background, NÃO derrubar a sessão:
+    // um 401 transiente (rede instável, deploy do backend, JWT expirando entre
+    // requests) jogaria o usuário pro login no meio do uso. O próximo poll
+    // tenta de novo; se for 401 real, a próxima ação interativa derruba.
+    if (res.status === 401 && !silentAuthFailure) clearSession()
     throw new ApiError(res.status, body, (body as { error?: string })?.error ?? `HTTP ${res.status}`)
   }
   return body as T
@@ -213,13 +220,14 @@ export const osintApi = {
       body: JSON.stringify({ nome, cpf }),
     }),
 
-  listar: (signal?: AbortSignal) => request<InvestigacaoLite[]>('/api/investigacoes', { signal }),
+  listar: (signal?: AbortSignal) =>
+    request<InvestigacaoLite[]>('/api/investigacoes', { signal, silentAuthFailure: true }),
 
   status: (id: number | string, signal?: AbortSignal) =>
-    request<StatusResponse>(`/api/investigacoes/${id}/status`, { signal }),
+    request<StatusResponse>(`/api/investigacoes/${id}/status`, { signal, silentAuthFailure: true }),
 
   buscar: (id: number | string, signal?: AbortSignal) =>
-    request<InvestigacaoFull>(`/api/investigacoes/${id}`, { signal }),
+    request<InvestigacaoFull>(`/api/investigacoes/${id}`, { signal, silentAuthFailure: true }),
 }
 
 export { ApiError }

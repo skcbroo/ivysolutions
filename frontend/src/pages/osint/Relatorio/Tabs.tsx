@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, type KeyboardEvent, type ReactNode } from 'react'
 
 export type Tab = 'empresas' | 'processos' | 'timeline' | 'relatorio'
 
@@ -33,7 +33,7 @@ export function Tabs({
     relatorio: undefined,
   }
 
-  function onKey(e: React.KeyboardEvent<HTMLDivElement>) {
+  function onKey(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return
     e.preventDefault()
     const idx = TAB_ITEMS.findIndex((i) => i.id === tab)
@@ -115,7 +115,7 @@ export function TabPanel({
   id: string
   labelledBy: string
   hidden: boolean
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <div
@@ -140,7 +140,7 @@ export function SortableTh<K extends string>({
   onSort,
   align,
 }: {
-  children: React.ReactNode
+  children: ReactNode
   sortKey: K
   current: { key: K; dir: 'asc' | 'desc' } | null
   onSort: (k: K) => void
@@ -203,7 +203,7 @@ export function FilterChip({
 }: {
   active: boolean
   onClick: () => void
-  children: React.ReactNode
+  children: ReactNode
   tone?: 'default' | 'blood'
 }) {
   const bg = active ? (tone === 'blood' ? 'var(--color-ivy-blood)' : 'var(--color-ivy-olive)') : 'transparent'
@@ -231,7 +231,7 @@ export function FilterChip({
   )
 }
 
-export function FilterBar({ children }: { children: React.ReactNode }) {
+export function FilterBar({ children }: { children: ReactNode }) {
   return (
     <div className="mb-6 flex flex-wrap gap-2 items-center">
       <span className="ivy-foot mr-2" style={{ color: 'var(--color-ivy-mid)' }}>Filtros:</span>

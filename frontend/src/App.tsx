@@ -18,11 +18,19 @@ function PublicNav() {
   return <TopNav />
 }
 
+function PageShell({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation()
+  // OsintLayout já renderiza <main>; evita aninhamento.
+  const isOsint = pathname.startsWith('/osint')
+  const Tag = isOsint ? 'div' : 'main'
+  return <Tag className="min-h-dvh">{children}</Tag>
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <PublicNav />
-      <main className="min-h-dvh">
+      <PageShell>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/sobre" element={<About />} />
@@ -69,7 +77,7 @@ export default function App() {
           />
           <Route path="*" element={<Home />} />
         </Routes>
-      </main>
+      </PageShell>
     </BrowserRouter>
   )
 }

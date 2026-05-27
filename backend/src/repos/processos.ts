@@ -1,15 +1,25 @@
 import { pool } from '../db.js'
 import type { Block2Processo, Block2Result } from '../blocks/block2.js'
 
+const PROCESSOS_BATCH = 200
+
 export async function bulkInsert(
   investigacaoId: number,
   processos: Block2Processo[],
 ): Promise<void> {
-  for (const p of processos) {
-    await pool.query(
-      `INSERT INTO processos (investigacao_id, numero, tribunal, orgao, classe, tipo, polo, link, criminal, vinculo, empresa_vinculada, comunicacoes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)`,
-      [
+  if (processos.length === 0) return
+  const COLS = 12
+  for (let i = 0; i < processos.length; i += PROCESSOS_BATCH) {
+    const slice = processos.slice(i, i + PROCESSOS_BATCH)
+    const values: unknown[] = []
+    const placeholders: string[] = []
+    slice.forEach((p, idx) => {
+      const base = idx * COLS
+      const ph = (n: number) => `$${base + n}`
+      placeholders.push(
+        `(${ph(1)},${ph(2)},${ph(3)},${ph(4)},${ph(5)},${ph(6)},${ph(7)},${ph(8)},${ph(9)},${ph(10)},${ph(11)},${ph(12)}::jsonb)`,
+      )
+      values.push(
         investigacaoId,
         p.numero,
         p.tribunal,
@@ -22,7 +32,12 @@ export async function bulkInsert(
         p.vinculo,
         p.empresaVinculada,
         JSON.stringify(p.comunicacoes ?? []),
-      ],
+      )
+    })
+    await pool.query(
+      `INSERT INTO processos (investigacao_id, numero, tribunal, orgao, classe, tipo, polo, link, criminal, vinculo, empresa_vinculada, comunicacoes)
+       VALUES ${placeholders.join(',')}`,
+      values,
     )
   }
 }
@@ -31,10 +46,20 @@ export async function bulkInsertAdvogados(
   investigacaoId: number,
   advogados: Block2Result['advogados'],
 ): Promise<void> {
-  for (const a of advogados) {
+  if (advogados.length === 0) return
+  const COLS = 3
+  for (let i = 0; i < advogados.length; i += PROCESSOS_BATCH) {
+    const slice = advogados.slice(i, i + PROCESSOS_BATCH)
+    const values: unknown[] = []
+    const placeholders: string[] = []
+    slice.forEach((a, idx) => {
+      const base = idx * COLS
+      placeholders.push(`($${base + 1},$${base + 2},$${base + 3})`)
+      values.push(investigacaoId, a.nome, a.oab)
+    })
     await pool.query(
-      `INSERT INTO processos_advogados (investigacao_id, nome, oab) VALUES ($1,$2,$3)`,
-      [investigacaoId, a.nome, a.oab],
+      `INSERT INTO processos_advogados (investigacao_id, nome, oab) VALUES ${placeholders.join(',')}`,
+      values,
     )
   }
 }
@@ -43,10 +68,20 @@ export async function bulkInsertEmpresasVinculadas(
   investigacaoId: number,
   empresas: Block2Result['empresasVinculadas'],
 ): Promise<void> {
-  for (const e of empresas) {
+  if (empresas.length === 0) return
+  const COLS = 3
+  for (let i = 0; i < empresas.length; i += PROCESSOS_BATCH) {
+    const slice = empresas.slice(i, i + PROCESSOS_BATCH)
+    const values: unknown[] = []
+    const placeholders: string[] = []
+    slice.forEach((e, idx) => {
+      const base = idx * COLS
+      placeholders.push(`($${base + 1},$${base + 2},$${base + 3})`)
+      values.push(investigacaoId, e.nome, e.polo)
+    })
     await pool.query(
-      `INSERT INTO processos_empresas_vinculadas (investigacao_id, nome, polo) VALUES ($1,$2,$3)`,
-      [investigacaoId, e.nome, e.polo],
+      `INSERT INTO processos_empresas_vinculadas (investigacao_id, nome, polo) VALUES ${placeholders.join(',')}`,
+      values,
     )
   }
 }
