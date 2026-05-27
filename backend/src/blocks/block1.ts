@@ -56,12 +56,13 @@ export async function runBlock1(
   nome: string,
   cpf: string,
   onProgress: (atual: number, total: number) => Promise<void>,
-  _logger?: { warn: (m: string) => void },
+  logger?: { info?: (m: string) => void; warn: (m: string) => void },
 ): Promise<Block1Result> {
   const warnings: string[] = []
 
   // Etapa 1: nome → person.id (com validação anti-homônimo por CPF parcial)
   const person = await searchPersonByName(nome, cpf)
+  logger?.info?.(`[block1] searchPerson kind=${person.kind}`)
 
   if (person.kind === 'no_results') {
     warnings.push('Nenhuma pessoa com esse nome encontrada na base CNPJa.')
@@ -79,9 +80,11 @@ export async function runBlock1(
       `Match por nome único (sem CPF na base CNPJa para conferir). Resultados podem ser de homônimo.`,
     )
   }
+  logger?.info?.(`[block1] person.id=${person.personId}`)
 
   // Etapa 2: person.id → membership[]
   const profile = await getPersonProfile(person.personId)
+  logger?.info?.(`[block1] profile membership=${profile?.membership?.length ?? 0}`)
   if (!profile?.membership || profile.membership.length === 0) {
     warnings.push('Pessoa identificada mas sem empresas vinculadas (membership vazio).')
     return { uuid: person.personId, cpfMasked: maskCpf(cpf), totalCapital: 0, empresas: [], warnings }
@@ -141,6 +144,7 @@ export async function runBlock1(
     if (normalized.capital) totalCapital += Number(normalized.capital)
     empresas.push(normalized)
   }
+  logger?.info?.(`[block1] resumo: ${empresas.length}/${total} empresas processadas, capital=${totalCapital}`)
 
   // Alertas de cruzamento
   const emailCount = new Map<string, number>()

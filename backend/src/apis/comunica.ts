@@ -103,7 +103,13 @@ type Context = {
   advogadosMap: Map<string, { nome: string; oab: string | null }>
 }
 
-export async function searchComunica(input: SearchInput, onProgress?: Progress): Promise<ComunicaResult> {
+type ComunicaLogger = { info?: (m: string) => void; warn?: (m: string) => void }
+
+export async function searchComunica(
+  input: SearchInput,
+  onProgress?: Progress,
+  logger?: ComunicaLogger,
+): Promise<ComunicaResult> {
   const ctx: Context = {
     nomeUpper: input.nome.toUpperCase().trim(),
     cpfPuro: input.cpf.replace(/\D/g, ''),
@@ -150,6 +156,9 @@ export async function searchComunica(input: SearchInput, onProgress?: Progress):
     tick,
     fastForward,
     /* requireCpfMatch */ true,
+    undefined,
+    `nome="${input.nome}"`,
+    logger,
   )
 
   // ── 2. CPF no texto (formatado + puro) ──
@@ -163,6 +172,9 @@ export async function searchComunica(input: SearchInput, onProgress?: Progress):
       tick,
       fastForward,
       /* requireCpfMatch */ false,
+      undefined,
+      `cpf="${cpfQuery}"`,
+      logger,
     )
   }
 
@@ -178,8 +190,15 @@ export async function searchComunica(input: SearchInput, onProgress?: Progress):
       fastForward,
       /* requireCpfMatch */ false,
       razao,
+      `empresa="${razao}"`,
+      logger,
     )
   }
+
+  logger?.info?.(
+    `[comunica] resumo: ${ctx.processosMap.size} processos únicos · ` +
+      `${ctx.empresasMap.size} empresas vinculadas · ${ctx.advogadosMap.size} advogados`,
+  )
 
   return {
     processos: Array.from(ctx.processosMap.values()),
@@ -202,7 +221,13 @@ async function paginarQuery(
   fastForward: (etapa: string, by: number) => Promise<void>,
   requireCpfMatch: boolean,
   empresaVinculadaNome?: string,
+  queryLabel?: string,
+  logger?: ComunicaLogger,
 ) {
+  let pagesFetched = 0
+  let totalItems = 0
+  let pages429 = 0
+  const processosAntes = ctx.processosMap.size
   for (let page = 1; page <= maxPages; page++) {
     await tick(etapaLabel)
     const qs = new URLSearchParams({ ...params, itensPorPagina: String(PAGE_SIZE), pagina: String(page) }).toString()
@@ -210,19 +235,34 @@ async function paginarQuery(
     const result = (await comunicaQueue.add(() =>
       httpJson<ComunicaResponse>(url, { retries: 4, retryDelayMs: 2_000, timeoutMs: 30_000 }),
     )) as { status: number; data: ComunicaResponse | null }
+    pagesFetched++
+    if (result.status === 429) {
+      pages429++
+      logger?.warn?.(
+        `[comunica] ${queryLabel ?? etapaLabel}: 429 na página ${page} após retries esgotados`,
+      )
+    }
     const items = result.data?.items
     if (result.status !== 200 || !items || items.length === 0) {
       await fastForward(etapaLabel, maxPages - page)
-      return
+      break
     }
+    totalItems += items.length
 
     for (const it of items) ingest(it, vinculo, ctx, requireCpfMatch, empresaVinculadaNome)
 
     if (items.length < PAGE_SIZE) {
       await fastForward(etapaLabel, maxPages - page)
-      return
+      break
     }
   }
+  const processosDepois = ctx.processosMap.size
+  logger?.info?.(
+    `[comunica] ${queryLabel ?? etapaLabel}: páginas=${pagesFetched}/${maxPages} ` +
+      `itens=${totalItems} novos_processos=${processosDepois - processosAntes} ` +
+      (pages429 > 0 ? `429=${pages429} ` : '') +
+      `acumulado=${processosDepois}`,
+  )
 }
 
 function ingest(

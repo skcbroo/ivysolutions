@@ -105,6 +105,7 @@ async function runWorkerInner(
         eta_ms: info.etaMs,
       })
     },
+    logger,
   )
 
   await processosRepo.bulkInsert(inv.id, b2.processos)

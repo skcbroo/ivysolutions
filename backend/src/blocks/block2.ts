@@ -39,8 +39,9 @@ export type Block2Input = {
 export async function runBlock2(
   input: Block2Input,
   onProgress: (info: ProgressInfo) => Promise<void>,
+  logger?: { info: (m: string) => void; warn: (m: string) => void },
 ): Promise<Block2Result> {
-  const comunica = await searchComunica(input, onProgress)
+  const comunica = await searchComunica(input, onProgress, logger)
 
   return {
     processos: comunica.processos.map((p) => ({
