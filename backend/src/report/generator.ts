@@ -81,7 +81,7 @@ export function generateReport(
         const analise = analisesLlm?.get(p.numero)
         if (analise) {
           linhas.push('')
-          linhas.push(`**Análise patrimonial:** ${analise}`)
+          linhas.push(`**Análise patrimonial:** ${truncMd(analise, 800)}`)
         }
         if (p.comunicacoes && p.comunicacoes.length > 0) {
           linhas.push('')

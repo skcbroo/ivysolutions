@@ -14,8 +14,9 @@ export const cnpjaOpenQueue = new PQueue({ concurrency: 1, interval: 1500, inter
 // publica.cnpj.ws: free tier de 3 req/min documentado. 21s/req com folga
 // para evitar 429. Investigações com >5 empresas demoram, mas é a fonte
 // primária agora. Em testes, CNPJWS_INTERVAL_MS=0 desativa o throttle.
+const parsedCnpjWsInterval = Number(process.env.CNPJWS_INTERVAL_MS)
 export const cnpjwsQueue = new PQueue({
   concurrency: 1,
-  interval: Number(process.env.CNPJWS_INTERVAL_MS ?? 21_000),
+  interval: Number.isFinite(parsedCnpjWsInterval) ? parsedCnpjWsInterval : 21_000,
   intervalCap: 1,
 })

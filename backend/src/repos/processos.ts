@@ -91,11 +91,26 @@ export async function updateAnaliseLlm(
   analisesPorNumero: Map<string, string>,
 ): Promise<void> {
   if (analisesPorNumero.size === 0) return
-  for (const [numero, analise] of analisesPorNumero) {
+  const entries = Array.from(analisesPorNumero.entries())
+  // UPDATE ... FROM (VALUES ...) em batches: 1 round-trip por batch
+  // em vez de 1 por processo.
+  const BATCH = 200
+  for (let i = 0; i < entries.length; i += BATCH) {
+    const slice = entries.slice(i, i + BATCH)
+    const values: unknown[] = []
+    const placeholders: string[] = []
+    slice.forEach(([numero, analise], idx) => {
+      const base = idx * 2
+      placeholders.push(`($${base + 1}, $${base + 2})`)
+      values.push(numero, analise)
+    })
     await pool.query(
-      `UPDATE processos SET analise_llm = $1
-        WHERE investigacao_id = $2 AND numero = $3`,
-      [analise, investigacaoId, numero],
+      `UPDATE processos AS p
+          SET analise_llm = v.analise
+         FROM (VALUES ${placeholders.join(',')}) AS v(numero, analise)
+        WHERE p.investigacao_id = $${values.length + 1}
+          AND p.numero = v.numero`,
+      [...values, investigacaoId],
     )
   }
 }
