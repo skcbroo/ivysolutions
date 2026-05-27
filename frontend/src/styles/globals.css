@@ -18,6 +18,31 @@
   --color-ivy-mid: oklch(0.42 0.005 130);
   --color-ivy-near: oklch(0.16 0.003 130);
 
+  /* Tokens auxiliares — superfícies, regras e bordas derivadas
+     dos primários. Nomeados pela função (não pela cor). */
+  --color-ivy-bone-soft: oklch(0.86 0.018 88);
+  /*  Bone levemente apagado para texto secundário sobre fundos pretos
+      (ex: parágrafos abaixo do hero do Login). */
+
+  --color-ivy-rule-subtle: oklch(0.85 0.012 90);
+  /*  Linhas finíssimas entre linhas de tabela / itens de lista
+      sobre paper. Mais leve que --color-ivy-tan; sem competir
+      com a regra olive de seção. */
+
+  --color-ivy-rule-soft: oklch(0.78 0.03 80 / 0.6);
+  /*  Conector vertical entre passos numerados (Nova). Translúcido
+      para não roubar peso da numeração. */
+
+  --color-ivy-border-input: oklch(0.62 0.03 80);
+  /*  Borda inferior padrão de inputs sobre fundo paper.
+      (Em fundo escuro usa --color-ivy-tan diretamente.) */
+
+  --color-ivy-paper-soft: oklch(0.94 0.012 90 / 0.6);
+  /*  Painel embutido sobre paper (ex: RunningPanel). */
+
+  --color-ivy-track: oklch(0.83 0.028 84 / 0.4);
+  /*  Trilho de barras de progresso. Sand translúcido. */
+
   --font-display: 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', 'Oswald',
     sans-serif;
   --font-body: 'Trebuchet MS', 'Lucida Grande', 'Lucida Sans Unicode',
@@ -189,6 +214,41 @@ input, textarea {
   cursor: text;
 }
 
+/* Visually hidden but available to screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Focus indicator institucional: contorno olive 2px com offset.
+   :focus-visible em vez de :focus para não aparecer em click do mouse. */
+a:focus-visible,
+button:focus-visible,
+[role='button']:focus-visible,
+[role='tab']:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:not([tabindex='-1']):focus-visible {
+  outline: 2px solid var(--color-ivy-olive);
+  outline-offset: 2px;
+  border-radius: 1px;
+}
+/* Em inputs com border-bottom (Field padrão), o outline vira underline
+   reforçado em vez de retângulo flutuante. */
+input:focus-visible {
+  outline: 0;
+  border-bottom-color: var(--color-ivy-olive) !important;
+  box-shadow: inset 0 -2px 0 0 var(--color-ivy-olive);
+}
+
 /* Respeita reduced-motion. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -197,6 +257,12 @@ input, textarea {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Pulse animação para badge de status "rodando". */
+@keyframes osintPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
 /* Container interno respeitando margens documentais. */
