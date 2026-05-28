@@ -1,5 +1,6 @@
 import type { Block1Result } from '../blocks/block1.js'
 import type { Block2Result } from '../blocks/block2.js'
+import type { Sancao, EmpresaExterior } from '../blocks/block4.js'
 import { formatCpf as fmtCpf, formatCnpj } from '../utils/format.js'
 
 const formatBRL = (v: number | null | undefined) =>
@@ -27,6 +28,7 @@ export function generateReport(
   b1: Block1Result,
   b2: Block2Result,
   analisesLlm?: Map<string, string> | null,
+  internacional?: { sancoes: Sancao[]; empresasExterior: EmpresaExterior[] } | null,
 ): string {
   const date = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   const linhas: string[] = []
@@ -137,6 +139,36 @@ export function generateReport(
   if (b2.empresasVinculadas.length > 0) {
     linhas.push('## Empresas vinculadas em processos')
     for (const e of b2.empresasVinculadas) linhas.push(`- ${e.nome}${e.polo ? ` (polo ${e.polo})` : ''}`)
+    linhas.push('')
+  }
+
+  const sancoes = internacional?.sancoes ?? []
+  const empresasExterior = internacional?.empresasExterior ?? []
+
+  if (sancoes.length > 0) {
+    linhas.push('## ⚠ Risco internacional (sanções / PEP)')
+    linhas.push(`_Fonte: OpenSanctions — ${sancoes.length} resultado(s) relevante(s)._`)
+    linhas.push('')
+    for (const s of sancoes) {
+      linhas.push(`### ${esc(s.entidade)} (score ${s.score.toFixed(2)})`)
+      if (s.programas.length > 0) linhas.push(`- **Categorias/programas:** ${s.programas.join(', ')}`)
+      if (s.paises.length > 0) linhas.push(`- **Países:** ${s.paises.join(', ')}`)
+      if (s.listas.length > 0) linhas.push(`- **Listas:** ${s.listas.join(', ')}`)
+      if (s.aliases.length > 0) linhas.push(`- **Aliases:** ${truncMd(s.aliases.join('; '), 300)}`)
+      if (s.url) linhas.push(`- **Detalhe:** ${s.url}`)
+      linhas.push('')
+    }
+  }
+
+  if (empresasExterior.length > 0) {
+    linhas.push('## Sociedades no exterior')
+    linhas.push('| Empresa | Jurisdição | Cargo | Entrada | Saída | Detalhe |')
+    linhas.push('|---|---|---|---|---|---|')
+    for (const e of empresasExterior) {
+      linhas.push(
+        `| ${esc(e.empresa)}${e.numero ? ` (${e.numero})` : ''} | ${esc(e.jurisdicao)} | ${esc(e.cargo)} | ${formatDate(e.entrada)} | ${e.saida ? formatDate(e.saida) : 'ativo'} | ${e.url ?? '—'} |`,
+      )
+    }
     linhas.push('')
   }
 

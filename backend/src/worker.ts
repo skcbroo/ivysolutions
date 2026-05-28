@@ -2,12 +2,14 @@ export { toDate } from './utils/format.js'
 import { runBlock1 } from './blocks/block1.js'
 import { runBlock2 } from './blocks/block2.js'
 import { runBlock3 } from './blocks/block3.js'
+import { runBlock4, type Sancao, type EmpresaExterior } from './blocks/block4.js'
 import { config } from './config.js'
 import { generateReport } from './report/generator.js'
 import * as investigacoesRepo from './repos/investigacoes.js'
 import * as empresasRepo from './repos/empresas.js'
 import * as processosRepo from './repos/processos.js'
 import * as relatoriosRepo from './repos/relatorios.js'
+import * as internacionalRepo from './repos/internacional.js'
 
 type Logger = { info: (m: string) => void; warn: (m: string) => void; error: (m: string) => void }
 
@@ -144,8 +146,41 @@ async function runWorkerInner(
     logger.info(`#${inv.id} bloco3 pulado (BLOCK3_ENABLED=${config.BLOCK3_ENABLED ? 'true' : 'false'}, ANTHROPIC_API_KEY=${config.ANTHROPIC_API_KEY ? 'set' : 'missing'})`)
   }
 
+  // ── BLOCO 4: Buscas internacionais (opcional, atrás de flag) ──
+  let sancoes: Sancao[] = []
+  let empresasExterior: EmpresaExterior[] = []
+  if (config.BLOCK4_ENABLED) {
+    await investigacoesRepo.setProgresso(inv.id, {
+      bloco_atual: 'block4',
+      etapa: 'Buscas internacionais',
+      atual: 0,
+      total: 1,
+      eta_ms: null,
+    })
+    // Gancho futuro: o Block 1.5 (busca reversa) também dispara o Block 4 ao
+    // encontrar empresa correlata com domicílio estrangeiro.
+    const b4 = await runBlock4(inv.nome, logger, async (atual, total) => {
+      await investigacoesRepo.setProgresso(inv.id, {
+        bloco_atual: 'block4',
+        etapa: `Buscas internacionais (${atual}/${total})`,
+        atual,
+        total,
+        eta_ms: null,
+      })
+    })
+    sancoes = b4.sancoes
+    empresasExterior = b4.empresasExterior
+    if (sancoes.length > 0) await internacionalRepo.insertSancoes(inv.id, sancoes)
+    if (empresasExterior.length > 0) await internacionalRepo.insertEmpresasExterior(inv.id, empresasExterior)
+    logger.info(
+      `#${inv.id} bloco4 ok — ${sancoes.length} sanção(ões), ${empresasExterior.length} sociedade(s) ext`,
+    )
+  } else {
+    logger.info(`#${inv.id} bloco4 pulado (BLOCK4_ENABLED=false)`)
+  }
+
   // ── RELATÓRIO ──
-  const md = generateReport(inv.nome, inv.cpf, b1, b2, analises)
+  const md = generateReport(inv.nome, inv.cpf, b1, b2, analises, { sancoes, empresasExterior })
   await relatoriosRepo.upsert(inv.id, md)
 
   await investigacoesRepo.setStatus(inv.id, 'concluido')

@@ -7,6 +7,7 @@ import { isAbortError, osintApi, type InvestigacaoFull } from '../../../lib/osin
 import { DossieProtocolo } from './DossieProtocolo'
 import { formatBRL, formatDateTime } from './format'
 import { RunningPanel } from './RunningPanel'
+import { SancoesFlag } from './SancoesFlag'
 import { TabEmpresas } from './TabEmpresas'
 import { TabProcessos } from './TabProcessos'
 import { TabRelatorio } from './TabRelatorio'
@@ -175,6 +176,8 @@ export function Relatorio() {
           </div>
         )}
 
+        <SancoesFlag sancoes={data.sancoes ?? []} />
+
         {data.status === 'erro' && data.erro_msg && (
           <div
             className="mb-10 p-6 border"
@@ -200,7 +203,10 @@ export function Relatorio() {
         <Tabs
           tab={tab}
           onChange={setTab}
-          counts={{ empresas: data.empresas.length, processos: totalProcessos }}
+          counts={{
+            empresas: data.empresas.length + (data.empresas_exterior?.length ?? 0),
+            processos: totalProcessos,
+          }}
         />
 
         {/* Os 3 painéis ficam SEMPRE no DOM (com hidden quando inativos)
