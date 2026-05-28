@@ -49,14 +49,21 @@ export async function investigacoesRoutes(app: FastifyInstance) {
     })
   })
 
-  app.get('/investigacoes', async () => {
-    const rows = await investigacoesRepo.listRecent(200)
+  app.get('/investigacoes', async (request) => {
+    // Admin vê tudo; analista só os próprios dossiês.
+    const filter = request.user?.role === 'admin' ? undefined : request.user?.userId
+    const rows = await investigacoesRepo.listRecent(200, filter)
     return rows.map((r) => ({ ...r, cpf: formatCpf(r.cpf) }))
   })
 
   app.get<{ Params: { id: string } }>('/investigacoes/:id/status', async (request, reply) => {
     const id = Number(request.params.id)
     if (!Number.isFinite(id)) return reply.code(400).send({ error: 'invalid_id' })
+    const inv = await investigacoesRepo.findById(id)
+    if (!inv) return reply.code(404).send({ error: 'not_found' })
+    if (request.user?.role !== 'admin' && Number(inv.created_by) !== request.user?.userId) {
+      return reply.code(404).send({ error: 'not_found' })
+    }
     const status = await investigacoesRepo.findStatus(id)
     if (!status) return reply.code(404).send({ error: 'not_found' })
     return status
@@ -68,6 +75,9 @@ export async function investigacoesRoutes(app: FastifyInstance) {
 
     const investigacao = await investigacoesRepo.findById(id)
     if (!investigacao) return reply.code(404).send({ error: 'not_found' })
+    if (request.user?.role !== 'admin' && Number(investigacao.created_by) !== request.user?.userId) {
+      return reply.code(404).send({ error: 'not_found' })
+    }
 
     const [empresas, processos, advogados, vinculadas, relatorio] = await Promise.all([
       empresasRepo.findByInvestigacao(id),

@@ -9,7 +9,7 @@ const LINKS: NavLink[] = [
   { to: '/#cases', label: 'Casos', hash: true },
 ]
 
-const WHATSAPP_URL = `https://wa.me/556183015739?text=${encodeURIComponent(
+const WHATSAPP_URL = `https://wa.me/5561995913312?text=${encodeURIComponent(
   'Olá, gostaria de falar com a IVY sobre uma operação de recuperação.',
 )}`
 

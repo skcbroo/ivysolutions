@@ -4,14 +4,8 @@ import {
   resolveFullCnpjFromRoot,
   type PersonMembership,
 } from '../apis/cnpja-bff.js'
-import { fetchCnpj, type BrasilApiCnpj } from '../apis/brasilapi.js'
 import { fetchCnpjFallback } from '../apis/cnpjbiz.js'
-import {
-  fetchCnpjOpen,
-  formatPhone,
-  formatPhoneFromBrasilApi,
-  type CnpjaOpenOffice,
-} from '../apis/cnpja.js'
+import { fetchCnpjWs, formatPhoneCnpjWs, type CnpjWsResponse } from '../apis/cnpjws.js'
 import { formatCpf } from '../utils/format.js'
 
 export type EmpresaNormalizada = {
@@ -93,6 +87,7 @@ export async function runBlock1(
   // Etapa 3: para cada empresa, resolve raiz → CNPJ14
   const total = profile.membership.length
   const empresas: EmpresaNormalizada[] = []
+  const addressKeyByCnpj = new Map<string, string>()
   let totalCapital = 0
 
   for (let i = 0; i < total; i++) {
@@ -109,37 +104,29 @@ export async function runBlock1(
       continue
     }
 
-    // BrasilAPI (situação/capital/QSA/endereço) + CNPJa Open (e-mails, telefones)
-    // em paralelo. CNPJa Open passa por fila pra respeitar rate limit.
-    const [detail, cnpjaOpen] = await Promise.all([fetchCnpj(cnpj14), fetchCnpjOpen(cnpj14)])
+    // Fonte primária: publica.cnpj.ws. Fallback: scrape (cnpjbiz / publica.cnpj.ws via parser).
+    const detail = await fetchCnpjWs(cnpj14)
     let scrape: Awaited<ReturnType<typeof fetchCnpjFallback>> | null = null
-    if (!detail && !cnpjaOpen) scrape = await fetchCnpjFallback(cnpj14)
+    if (!detail) scrape = await fetchCnpjFallback(cnpj14)
 
     let normalized: EmpresaNormalizada
+    let addrParts: AddressParts | null = null
     if (detail) {
-      normalized = normalizeBrasilApi(cnpj14, detail, nome, m)
-    } else if (cnpjaOpen) {
-      normalized = normalizeCnpjaOpen(cnpj14, cnpjaOpen, nome, m)
+      normalized = normalizeCnpjWs(cnpj14, detail, nome, m)
+      const est = detail.estabelecimento
+      addrParts = {
+        logradouro: est?.logradouro,
+        numero: est?.numero,
+        bairro: est?.bairro,
+        cep: est?.cep,
+      }
     } else if (scrape) {
       normalized = normalizeFallback(cnpj14, scrape, m)
     } else {
       normalized = blankEmpresa(cnpj14, m, ['dados não localizados'])
     }
-
-    // CNPJa Open quase sempre tem e-mails/telefones que BrasilAPI não tem.
-    // Mescla por cima sem perder dados estruturais da fonte primária.
-    if (cnpjaOpen) {
-      const emailsOpen = (cnpjaOpen.emails ?? [])
-        .map((e) => e.address?.trim())
-        .filter((s): s is string => !!s)
-      const phonesOpen = (cnpjaOpen.phones ?? [])
-        .map((p) => formatPhone(p.area, p.number))
-        .filter((s): s is string => !!s)
-      if (emailsOpen.length > 0) normalized.emails = uniq(emailsOpen)
-      if (phonesOpen.length > 0) normalized.telefones = uniq(phonesOpen)
-      normalized.email = normalized.emails[0] ?? normalized.email
-      normalized.telefone = normalized.telefones[0] ?? normalized.telefone
-    }
+    const k = addrParts ? makeAddressKey(addrParts) : null
+    if (k) addressKeyByCnpj.set(cnpj14, k)
 
     if (normalized.capital) totalCapital += Number(normalized.capital)
     empresas.push(normalized)
@@ -149,6 +136,11 @@ export async function runBlock1(
   // Alertas de cruzamento
   const emailCount = new Map<string, number>()
   for (const e of empresas) if (e.email) emailCount.set(e.email.toLowerCase(), (emailCount.get(e.email.toLowerCase()) ?? 0) + 1)
+  const addrCount = new Map<string, number>()
+  for (const e of empresas) {
+    const k = addressKeyByCnpj.get(e.cnpj14)
+    if (k) addrCount.set(k, (addrCount.get(k) ?? 0) + 1)
+  }
   for (const e of empresas) {
     if (e.email && (emailCount.get(e.email.toLowerCase()) ?? 0) > 1) {
       e.alertas.push(`email compartilhado em ${emailCount.get(e.email.toLowerCase())} empresas`)
@@ -156,13 +148,12 @@ export async function runBlock1(
     if (e.email && PESSOAL_DOMAIN_RX.test(e.email) && (e.capital ?? 0) >= CAPITAL_ALTO) {
       e.alertas.push('email pessoal em empresa de alto capital')
     }
+    const k = addressKeyByCnpj.get(e.cnpj14)
+    const n = k ? addrCount.get(k) ?? 0 : 0
+    if (n > 1) e.alertas.push(`endereço compartilhado em ${n} empresas`)
   }
 
   return { uuid: person.personId, cpfMasked: maskCpf(cpf), totalCapital, empresas, warnings }
-}
-
-function uniq<T>(arr: T[]): T[] {
-  return Array.from(new Set(arr))
 }
 
 function blankEmpresa(cnpj14: string, m: PersonMembership, alertas: string[]): EmpresaNormalizada {
@@ -189,89 +180,48 @@ function blankEmpresa(cnpj14: string, m: PersonMembership, alertas: string[]): E
   }
 }
 
-function normalizeBrasilApi(
+function normalizeCnpjWs(
   cnpj14: string,
-  d: BrasilApiCnpj,
+  d: CnpjWsResponse,
   nomeAlvo: string,
   m: PersonMembership,
 ): EmpresaNormalizada {
-  const enderecoParts = [d.logradouro, d.numero, d.bairro, d.municipio, d.uf, d.cep].filter(Boolean)
+  const est = d.estabelecimento
+  const enderecoParts = [
+    est?.logradouro,
+    est?.numero,
+    est?.bairro,
+    est?.cidade?.nome,
+    est?.estado?.sigla,
+    est?.cep,
+  ].filter(Boolean)
   const capitalRaw = typeof d.capital_social === 'string' ? Number(d.capital_social) : (d.capital_social ?? null)
   const capital = Number.isFinite(capitalRaw as number) ? (capitalRaw as number) : null
-  const qsa = (d.qsa ?? []).map((q) => ({
-    nome_socio: q.nome_socio,
-    qualificacao_socio: q.qualificacao_socio,
-    data_entrada_sociedade: q.data_entrada_sociedade,
-    faixa_etaria: q.faixa_etaria,
+  const qsa = (d.socios ?? []).map((s) => ({
+    nome_socio: s.nome,
+    qualificacao_socio: s.qualificacao_socio?.descricao,
+    data_entrada_sociedade: s.data_entrada,
+    faixa_etaria: s.faixa_etaria,
   }))
   const socioAlvo = qsa.find((q) => q.nome_socio?.toUpperCase() === nomeAlvo.toUpperCase())
-  const telefones = [d.ddd_telefone_1, d.ddd_telefone_2]
-    .map((p) => formatPhoneFromBrasilApi(p))
-    .filter((s): s is string => !!s)
-  const emails = d.email ? [d.email] : []
+  const telefones = [
+    formatPhoneCnpjWs(est?.ddd1, est?.telefone1),
+    formatPhoneCnpjWs(est?.ddd2, est?.telefone2),
+  ].filter((s): s is string => !!s)
+  const emails = est?.email ? [est.email] : []
   return {
     cnpj14,
     nome: d.razao_social ?? null,
-    nomeFantasia: d.nome_fantasia ?? null,
-    situacao: d.descricao_situacao_cadastral ?? null,
-    dataSituacao: d.data_situacao_cadastral ?? null,
-    abertura: d.data_inicio_atividade ?? null,
+    nomeFantasia: est?.nome_fantasia ?? null,
+    situacao: est?.situacao_cadastral ?? null,
+    dataSituacao: est?.data_situacao_cadastral ?? null,
+    abertura: est?.data_inicio_atividade ?? null,
     capital,
-    cnae: d.cnae_fiscal ? `${d.cnae_fiscal} ${d.cnae_fiscal_descricao ?? ''}`.trim() : null,
-    natureza: d.natureza_juridica ?? m.company?.nature?.text ?? null,
-    porte: d.porte ?? m.company?.size?.text ?? null,
-    cargo: socioAlvo?.qualificacao_socio ?? m.role?.text ?? null,
-    dataEntrada: socioAlvo?.data_entrada_sociedade ?? m.since ?? null,
-    endereco: enderecoParts.join(', ') || null,
-    email: emails[0] ?? null,
-    telefone: telefones[0] ?? null,
-    qsa,
-    emails,
-    telefones,
-    alertas: [],
-  }
-}
-
-function normalizeCnpjaOpen(
-  cnpj14: string,
-  d: CnpjaOpenOffice,
-  nomeAlvo: string,
-  m: PersonMembership,
-): EmpresaNormalizada {
-  const enderecoParts = [
-    d.address?.street,
-    d.address?.number,
-    d.address?.district,
-    d.address?.city,
-    d.address?.state,
-    d.address?.zip,
-  ].filter(Boolean)
-  const capitalRaw = typeof d.company?.equity === 'string' ? Number(d.company.equity) : (d.company?.equity ?? null)
-  const capital = Number.isFinite(capitalRaw as number) ? (capitalRaw as number) : null
-  const qsa = (d.members ?? []).map((mb) => ({
-    nome_socio: mb.person?.name,
-    qualificacao_socio: mb.role?.text,
-    data_entrada_sociedade: mb.since,
-    faixa_etaria: mb.age,
-  }))
-  const socioAlvo = qsa.find((q) => q.nome_socio?.toUpperCase() === nomeAlvo.toUpperCase())
-  const emails = uniq(
-    (d.emails ?? []).map((e) => e.address?.trim()).filter((s): s is string => !!s),
-  )
-  const telefones = uniq(
-    (d.phones ?? []).map((p) => formatPhone(p.area, p.number)).filter((s): s is string => !!s),
-  )
-  return {
-    cnpj14,
-    nome: d.company?.name ?? null,
-    nomeFantasia: d.alias ?? null,
-    situacao: d.status?.text ?? null,
-    dataSituacao: d.statusDate ?? null,
-    abertura: d.founded ?? null,
-    capital,
-    cnae: d.mainActivity?.id ? `${d.mainActivity.id} ${d.mainActivity.text ?? ''}`.trim() : null,
-    natureza: d.company?.nature?.text ?? m.company?.nature?.text ?? null,
-    porte: d.company?.size?.text ?? m.company?.size?.text ?? null,
+    cnae: est?.atividade_principal?.id
+      ? `${est.atividade_principal.id} ${est.atividade_principal.descricao ?? ''}`.trim()
+      : null,
+    natureza: d.natureza_juridica?.descricao ?? m.company?.nature?.text ?? null,
+    porte: d.porte?.descricao ?? m.company?.size?.text ?? null,
     cargo: socioAlvo?.qualificacao_socio ?? m.role?.text ?? null,
     dataEntrada: socioAlvo?.data_entrada_sociedade ?? m.since ?? null,
     endereco: enderecoParts.join(', ') || null,
@@ -315,3 +265,31 @@ function normalizeFallback(
 // Mantém o nome do field como "cpfMasked" por compatibilidade, mas
 // agora exibimos o CPF completo formatado.
 const maskCpf = formatCpf
+
+type AddressParts = {
+  logradouro?: string | null
+  numero?: string | null
+  bairro?: string | null
+  cep?: string | null
+}
+
+function normalizeAddrField(s: string | null | undefined): string {
+  if (!s) return ''
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // remove diacríticos
+    .toLowerCase()
+    .replace(/[.,/\\-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function makeAddressKey(p: AddressParts): string | null {
+  const log = normalizeAddrField(p.logradouro)
+  const num = normalizeAddrField(p.numero)
+  const bai = normalizeAddrField(p.bairro)
+  const cep = (p.cep ?? '').replace(/\D/g, '')
+  // Endereço só conta como chave se tiver logradouro+CEP — evita "sem número" agrupando empresas.
+  if (!log || !cep) return null
+  return `${log}|${num}|${bai}|${cep}`
+}

@@ -61,7 +61,19 @@ export async function findStatus(id: number): Promise<StatusRow | null> {
   return (rows[0] ?? null) as StatusRow | null
 }
 
-export async function listRecent(limit = 200) {
+export async function listRecent(limit = 200, createdBy?: number) {
+  if (createdBy !== undefined) {
+    const { rows } = await pool.query(
+      `SELECT id, created_at, updated_at, nome, cpf, status, progresso,
+              capital_total, pje_count, erro_msg
+         FROM investigacoes
+        WHERE created_by = $1
+        ORDER BY created_at DESC
+        LIMIT $2`,
+      [createdBy, limit],
+    )
+    return rows
+  }
   const { rows } = await pool.query(
     `SELECT id, created_at, updated_at, nome, cpf, status, progresso,
             capital_total, pje_count, erro_msg

@@ -143,6 +143,7 @@ export type Processo = {
   vinculo: 'pessoal' | 'cpf' | 'empresarial' | null
   empresa_vinculada: string | null
   comunicacoes: Array<{ data: string | null; tipo: string | null; texto: string; link: string | null }>
+  analise_llm: string | null
 }
 
 export type Advogado = { id: string; nome: string; oab: string | null }

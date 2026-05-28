@@ -9,8 +9,8 @@ ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT false
 
 ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'analista'));
 
--- Promove o usuário bootstrap (existente) a admin.
-UPDATE users SET role = 'admin' WHERE email = 'analista@ivy.com';
+-- O primeiro admin é criado pelo bootstrap (auth/bootstrap.ts) a partir das
+-- env vars ADMIN_EMAIL/ADMIN_PASSWORD. Não fazemos UPDATE hardcoded aqui.
 
 CREATE INDEX users_role_idx ON users (role);
 CREATE INDEX users_active_idx ON users (active);
