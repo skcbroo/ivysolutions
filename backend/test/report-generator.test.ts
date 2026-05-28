@@ -25,6 +25,18 @@ const offshore: VinculoOffshore = {
   score: 80,
   match: true,
   url: 'https://offshoreleaks.icij.org/nodes/NK-1',
+  conexoes: [
+    {
+      id: '10147848',
+      categoria: 'Entity',
+      nome: 'SSG International Holdings Ltd.',
+      jurisdicao: 'British Virgin Islands',
+      endereco: 'Miami Beach, FL',
+      status: 'Defaulted',
+      incorporacao: '17-JUL-2012',
+      url: 'https://offshoreleaks.icij.org/nodes/10147848',
+    },
+  ],
 }
 
 type Internacional = { sancoes: Sancao[]; empresasExterior: []; offshore?: VinculoOffshore[] }
@@ -101,6 +113,10 @@ describe('generateReport — estados de bloco (não executado vs. nada encontrad
     expect(md).toContain('Vínculos offshore (ICIJ Offshore Leaks)')
     expect(md).toContain('Panama Papers')
     expect(md).toContain('Fulano de Tal')
+    // conexões do grafo renderizadas
+    expect(md).toContain('Conexões no grafo')
+    expect(md).toContain('SSG International Holdings Ltd.')
+    expect(md).toContain('British Virgin Islands')
     expect(md).not.toContain('Nenhum vínculo internacional encontrado')
   })
 

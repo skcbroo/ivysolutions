@@ -6,7 +6,7 @@ vi.mock('../src/apis/http.js', async () => {
   return { ...actual, httpJson: httpJsonMock }
 })
 
-import { reconcile, nodeUrl, OffshoreLeaksError } from '../src/apis/offshoreleaks.js'
+import { reconcile, getConnections, nodeUrl, OffshoreLeaksError } from '../src/apis/offshoreleaks.js'
 
 afterEach(() => vi.clearAllMocks())
 
@@ -49,7 +49,66 @@ describe('offshoreleaks.reconcile', () => {
     await expect(reconcile('Fulano', 'pandora-papers')).rejects.toBeInstanceOf(OffshoreLeaksError)
   })
 
+  it('por padrão NÃO envia `type` (busca todas as categorias)', async () => {
+    httpJsonMock.mockResolvedValueOnce({ status: 201, data: { result: [] }, text: '' })
+    await reconcile('Fulano', 'panama-papers')
+    const body = JSON.parse(httpJsonMock.mock.calls[0][1].body)
+    expect(body).not.toHaveProperty('type')
+    expect(body).toMatchObject({ query: 'Fulano', limit: 10 })
+  })
+
+  it('envia `type` quando especificado', async () => {
+    httpJsonMock.mockResolvedValueOnce({ status: 201, data: { result: [] }, text: '' })
+    await reconcile('Fulano', 'panama-papers', { type: 'Entity', limit: 3 })
+    const body = JSON.parse(httpJsonMock.mock.calls[0][1].body)
+    expect(body).toMatchObject({ query: 'Fulano', type: 'Entity', limit: 3 })
+  })
+
   it('nodeUrl monta a URL pública do nó', () => {
     expect(nodeUrl('abc')).toBe('https://offshoreleaks.icij.org/nodes/abc')
+  })
+
+  it('getConnections parseia o grafo /nodes/{id}.json (entidade + endereço)', async () => {
+    httpJsonMock.mockResolvedValueOnce({
+      status: 200,
+      data: [
+        {
+          id: 10147848,
+          data: {
+            categories: ['Entity'],
+            properties: {
+              name: 'SSG International Holdings Ltd.',
+              jurisdiction: 'BVI',
+              jurisdiction_description: 'British Virgin Islands',
+              address: 'BARBOSA LEGAL 407 LINCOLN ROAD, MIAMI BEACH, FL',
+              incorporation_date: '17-JUL-2012',
+              status: 'Defaulted',
+            },
+          },
+        },
+        {
+          id: 14007981,
+          data: { categories: ['Address'], properties: { address: '2000 Ponce De Leon Blvd, Coral Gables, FL' } },
+        },
+      ],
+      text: '',
+    })
+    const c = await getConnections('12103204')
+    expect(c).toHaveLength(2)
+    expect(c[0]).toMatchObject({
+      id: '10147848',
+      categoria: 'Entity',
+      nome: 'SSG International Holdings Ltd.',
+      jurisdicao: 'British Virgin Islands',
+      incorporacao: '17-JUL-2012',
+      status: 'Defaulted',
+      url: 'https://offshoreleaks.icij.org/nodes/10147848',
+    })
+    expect(c[1]).toMatchObject({ categoria: 'Address', nome: '2000 Ponce De Leon Blvd, Coral Gables, FL' })
+  })
+
+  it('getConnections devolve [] em erro (best-effort)', async () => {
+    httpJsonMock.mockResolvedValueOnce({ status: 500, data: null, text: 'err' })
+    expect(await getConnections('x')).toEqual([])
   })
 })

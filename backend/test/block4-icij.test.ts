@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IcijResult, IcijDataset } from '../src/apis/offshoreleaks.js'
 
-const { reconcileMock } = vi.hoisted(() => ({ reconcileMock: vi.fn() }))
+const { reconcileMock, getConnectionsMock } = vi.hoisted(() => ({
+  reconcileMock: vi.fn(),
+  getConnectionsMock: vi.fn(),
+}))
 vi.mock('../src/apis/offshoreleaks.js', async () => {
   const actual = await vi.importActual<typeof import('../src/apis/offshoreleaks.js')>('../src/apis/offshoreleaks.js')
-  return { ...actual, reconcile: reconcileMock }
+  return { ...actual, reconcile: reconcileMock, getConnections: getConnectionsMock }
 })
 
 // OpenSanctions e Companies House desligados nesses testes — só ICIJ.
@@ -33,6 +36,8 @@ const ICIJ_OFF = { opensanctions: false, companiesHouse: false, icij: true }
 beforeEach(() => {
   reconcileMock.mockReset()
   reconcileMock.mockResolvedValue([]) // datasets sem resultado por padrão
+  getConnectionsMock.mockReset()
+  getConnectionsMock.mockResolvedValue([]) // sem enriquecimento por padrão
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -48,6 +53,39 @@ describe('runBlock4 — ICIJ Offshore Leaks', () => {
       match: true,
       url: 'https://offshoreleaks.icij.org/nodes/NK-1',
     })
+    expect(r.erros).toBe(0)
+  })
+
+  it('enriquece o vínculo com as conexões do grafo (entidade/endereço)', async () => {
+    reconcileMock.mockResolvedValueOnce([hit()])
+    getConnectionsMock.mockResolvedValueOnce([
+      {
+        id: '10147848',
+        categoria: 'Entity',
+        nome: 'SSG International Holdings Ltd.',
+        jurisdicao: 'British Virgin Islands',
+        endereco: 'BARBOSA LEGAL 407 LINCOLN ROAD, MIAMI BEACH, FL',
+        status: 'Defaulted',
+        incorporacao: '17-JUL-2012',
+        url: 'https://offshoreleaks.icij.org/nodes/10147848',
+      },
+    ])
+    const r = await runBlock4('Sidnei Piva', ICIJ_OFF, silentLogger)
+    expect(getConnectionsMock).toHaveBeenCalledWith('NK-1')
+    expect(r.offshore[0].conexoes).toHaveLength(1)
+    expect(r.offshore[0].conexoes[0]).toMatchObject({
+      categoria: 'Entity',
+      nome: 'SSG International Holdings Ltd.',
+      jurisdicao: 'British Virgin Islands',
+    })
+  })
+
+  it('falha ao buscar conexões não derruba o vínculo (best-effort)', async () => {
+    reconcileMock.mockResolvedValueOnce([hit()])
+    getConnectionsMock.mockRejectedValueOnce(new Error('grafo 500'))
+    const r = await runBlock4('Sidnei Piva', ICIJ_OFF, silentLogger)
+    expect(r.offshore).toHaveLength(1)
+    expect(r.offshore[0].conexoes).toEqual([])
     expect(r.erros).toBe(0)
   })
 

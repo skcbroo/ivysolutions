@@ -118,9 +118,10 @@ Para cada fonte abaixo o fluxo é: buscar pelo nome do alvo (e variações) → 
 
 **Checklist**
 - [x] Criar `backend/src/apis/offshoreleaks.ts` — usa a **Reconciliation API JSON oficial** (`POST /api/v1/reconcile/{dataset}`, sem chave), não scraping
-- [x] Integrado ao Block 4 como 3ª fonte (`runOffshoreLeaks`): itera os 5 datasets, filtra por `match`/contenção de tokens do nome
-- [x] Persistência (`investigacao_offshore`, migration `014`), exibição no dossiê (relatório + `OffshoreFlag`), toggle no form
-- [x] Testes: cliente (`offshoreleaks.test.ts`) + integração no Block 4 (`block4-icij.test.ts`)
+- [x] Integrado ao Block 4 como 3ª fonte (`runOffshoreLeaks`): itera os 5 datasets, busca em **todas as categorias** (Officer/Entity/Intermediary/Address), filtra por `match`/contenção de tokens do nome
+- [x] **Enriquecimento de grafo:** para cada hit, `getConnections` (`/nodes/{id}.json`) traz a entidade offshore, endereço e intermediário conectados (jurisdição, status, data de incorporação) — ex.: alvo → SSG International Holdings Ltd. (BVI, Miami)
+- [x] Persistência (`investigacao_offshore` + coluna `conexoes` JSONB, migrations `014`/`015`), exibição no dossiê (relatório + `OffshoreFlag` com conexões), toggle no form
+- [x] Testes: cliente (`offshoreleaks.test.ts`) + integração no Block 4 (`block4-icij.test.ts`). Validado contra a API real (alvo → 1 hit + entidade/endereço)
 
 ---
 

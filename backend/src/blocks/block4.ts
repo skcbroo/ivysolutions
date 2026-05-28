@@ -6,7 +6,14 @@ import {
   type UkOfficerSearchItem,
   type UkAppointment,
 } from '../apis/ukcompanies.js'
-import { reconcile, nodeUrl, ICIJ_DATASETS, OffshoreLeaksError } from '../apis/offshoreleaks.js'
+import {
+  reconcile,
+  getConnections,
+  nodeUrl,
+  ICIJ_DATASETS,
+  OffshoreLeaksError,
+  type IcijConnection,
+} from '../apis/offshoreleaks.js'
 
 /**
  * Block 4: buscas internacionais. Produz dados ESTRUTURADOS para serem
@@ -57,6 +64,8 @@ export type VinculoOffshore = {
   score: number
   match: boolean
   url: string | null
+  /** Nós conectados no grafo (entidade offshore, endereço, intermediário). */
+  conexoes: IcijConnection[]
 }
 
 export type Block4Result = {
@@ -176,6 +185,13 @@ async function runOffshoreLeaks(nome: string, logger?: Block4Logger): Promise<Vi
         // score do reconcile não é normalizado 0–1; confia em `match` ou na
         // contenção dos tokens do nome (mesma heurística do Companies House).
         if (!h.match && ukNameScore(nome, h.name) < 0.85) continue
+        // Enriquecimento best-effort: puxa entidade/endereço/intermediário ligados.
+        let conexoes: IcijConnection[] = []
+        try {
+          conexoes = await getConnections(h.id)
+        } catch (err) {
+          logger?.warn(`[block4] ICIJ conexões de ${h.id} falharam — ${err instanceof Error ? err.message : String(err)}`)
+        }
         out.push({
           entidade: h.name,
           tipo: h.types[0] ?? null,
@@ -183,6 +199,7 @@ async function runOffshoreLeaks(nome: string, logger?: Block4Logger): Promise<Vi
           score: h.score,
           match: h.match,
           url: nodeUrl(h.id),
+          conexoes,
         })
       }
     } catch (err) {

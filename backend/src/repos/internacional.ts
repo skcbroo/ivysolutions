@@ -111,17 +111,17 @@ export async function insertOffshore(
   vinculos: VinculoOffshore[],
 ): Promise<void> {
   if (vinculos.length === 0) return
-  const COLS = 7
+  const COLS = 8
   const values: unknown[] = []
   const ph: string[] = []
   vinculos.forEach((v, idx) => {
     const b = idx * COLS
     ph.push(`(${Array.from({ length: COLS }, (_, k) => `$${b + k + 1}`).join(',')})`)
-    values.push(investigacaoId, v.entidade, v.tipo, v.dataset, v.score, v.match, v.url)
+    values.push(investigacaoId, v.entidade, v.tipo, v.dataset, v.score, v.match, v.url, JSON.stringify(v.conexoes ?? []))
   })
   await pool.query(
     `INSERT INTO investigacao_offshore
-       (investigacao_id, entidade, tipo, dataset, score, match, url)
+       (investigacao_id, entidade, tipo, dataset, score, match, url, conexoes)
      VALUES ${ph.join(',')}`,
     values,
   )
@@ -134,11 +134,12 @@ export type OffshoreRow = {
   score: number | null
   match: boolean
   url: string | null
+  conexoes: import('../blocks/block4.js').VinculoOffshore['conexoes']
 }
 
 export async function listOffshore(investigacaoId: number): Promise<OffshoreRow[]> {
   const { rows } = await pool.query(
-    `SELECT entidade, tipo, dataset, score, match, url
+    `SELECT entidade, tipo, dataset, score, match, url, conexoes
        FROM investigacao_offshore
       WHERE investigacao_id = $1
       ORDER BY match DESC, score DESC NULLS LAST`,

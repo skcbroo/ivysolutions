@@ -217,12 +217,27 @@ export function generateReport(
     linhas.push('## ⚠ Vínculos offshore (ICIJ Offshore Leaks)')
     linhas.push(`_Fonte: ICIJ — ${offshore.length} vínculo(s) em vazamentos offshore._`)
     linhas.push('')
-    linhas.push('| Entidade | Tipo | Dataset | Detalhe |')
-    linhas.push('|---|---|---|---|')
     for (const o of offshore) {
-      linhas.push(`| ${esc(o.entidade)} | ${esc(o.tipo)} | ${esc(datasetLabel(o.dataset))} | ${o.url ?? '—'} |`)
+      linhas.push(`### ${esc(o.entidade)}`)
+      linhas.push(`- **Tipo:** ${esc(o.tipo)} · **Dataset:** ${esc(datasetLabel(o.dataset))}`)
+      if (o.url) linhas.push(`- **Detalhe:** ${o.url}`)
+      const conexoes = o.conexoes ?? []
+      if (conexoes.length > 0) {
+        linhas.push(`- **Conexões no grafo (${conexoes.length}):**`)
+        for (const c of conexoes) {
+          const partes = [
+            c.categoria ? `_${esc(c.categoria)}_` : null,
+            `**${esc(c.nome)}**`,
+            c.jurisdicao ? `jurisdição ${esc(c.jurisdicao)}` : null,
+            c.status ? `status ${esc(c.status)}` : null,
+            c.incorporacao ? `incorp. ${esc(c.incorporacao)}` : null,
+            c.endereco ? `end. ${esc(c.endereco)}` : null,
+          ].filter(Boolean)
+          linhas.push(`  - ${partes.join(' · ')}`)
+        }
+      }
+      linhas.push('')
     }
-    linhas.push('')
   }
 
   linhas.push('## Itens para verificação manual')

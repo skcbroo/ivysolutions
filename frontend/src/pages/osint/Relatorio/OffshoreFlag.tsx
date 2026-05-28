@@ -69,6 +69,37 @@ export function OffshoreFlag({ offshore }: { offshore: VinculoOffshore[] }) {
                   </>
                 )}
               </dl>
+              {(o.conexoes ?? []).length > 0 && (
+                <div className="mt-3 pl-4" style={{ borderLeft: '1px solid var(--color-ivy-blood)' }}>
+                  <p className="ivy-foot" style={{ color: 'var(--color-ivy-mid)', letterSpacing: '0.2em', marginBottom: 6 }}>
+                    Conexões no grafo ({o.conexoes.length})
+                  </p>
+                  <div className="flex flex-col gap-3">
+                    {o.conexoes.map((c, j) => (
+                      <div key={j}>
+                        <p style={{ color: 'var(--color-ivy-near)', fontSize: 14, fontWeight: 500 }}>
+                          {c.categoria && (
+                            <span className="ivy-foot" style={{ color: 'var(--color-ivy-mid)', marginRight: 6 }}>
+                              {c.categoria}
+                            </span>
+                          )}
+                          {c.nome}
+                        </p>
+                        <p className="ivy-foot mt-0.5" style={{ color: 'var(--color-ivy-mid)' }}>
+                          {[
+                            c.jurisdicao && `jurisdição ${c.jurisdicao}`,
+                            c.status && `status ${c.status}`,
+                            c.incorporacao && `incorp. ${c.incorporacao}`,
+                            c.endereco,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {o.url && (
                 <a
                   href={o.url}

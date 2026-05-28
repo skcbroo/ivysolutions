@@ -172,6 +172,17 @@ export type EmpresaExterior = {
   score: number | null
 }
 
+export type ConexaoOffshore = {
+  id: string
+  categoria: string | null
+  nome: string
+  jurisdicao: string | null
+  endereco: string | null
+  status: string | null
+  incorporacao: string | null
+  url: string | null
+}
+
 export type VinculoOffshore = {
   entidade: string
   tipo: string | null
@@ -179,6 +190,7 @@ export type VinculoOffshore = {
   score: number | null
   match: boolean
   url: string | null
+  conexoes: ConexaoOffshore[]
 }
 
 export type InvestigacaoFull = InvestigacaoLite & {

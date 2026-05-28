@@ -6,11 +6,13 @@ import { httpJson } from './http.js'
  * de uma vez, então o Block 4 itera os datasets.
  *
  * Doc: https://offshoreleaks.icij.org/docs/reconciliation
- *   POST /api/v1/reconcile/{dataset}  body: { query, type, limit }
- *   → { result: [{ id, name, score, match, type: [{id,name}] }] }
+ *   POST /api/v1/reconcile/{dataset}  body: { query, limit, [type] }  → HTTP 201
+ *   → { result: [{ id, name, score, match, types: [{id,name}] }] }
+ * Sem `type`, busca todas as categorias (Officer/Entity/Intermediary/Address).
  */
 
-const BASE = 'https://offshoreleaks.icij.org/api/v1'
+const HOST = 'https://offshoreleaks.icij.org'
+const BASE = `${HOST}/api/v1`
 
 /** Datasets do ICIJ. O slug é usado direto na URL do endpoint. */
 export const ICIJ_DATASETS = [
@@ -65,7 +67,11 @@ function normalizeTypes(type: TypeEntry[] | TypeEntry | undefined): string[] {
 }
 
 export type ReconcileOptions = {
-  /** Tipo de entidade a buscar. `Officer` cobre pessoas físicas. */
+  /**
+   * Restringe a um tipo (Officer | Entity | Intermediary | Address | Other).
+   * Omitido (padrão) → busca em TODAS as categorias — o alvo pode constar como
+   * Officer, mas também como Entity/Intermediary/Address.
+   */
   type?: string
   /** Nº máximo de candidatos por dataset. */
   limit?: number
@@ -81,7 +87,10 @@ export async function reconcile(
   opts: ReconcileOptions = {},
 ): Promise<IcijResult[]> {
   const url = `${BASE}/reconcile/${dataset}`
-  const body = JSON.stringify({ query: nome, type: opts.type ?? 'Officer', limit: opts.limit ?? 5 })
+  // Sem `type` → a API busca em todas as categorias.
+  const payload: Record<string, unknown> = { query: nome, limit: opts.limit ?? 10 }
+  if (opts.type) payload.type = opts.type
+  const body = JSON.stringify(payload)
 
   const { status, data, text } = await httpJson<ReconcileResponse>(url, {
     method: 'POST',
@@ -111,5 +120,59 @@ export async function reconcile(
 
 /** URL pública do nó (página de detalhe humana). */
 export function nodeUrl(id: string): string {
-  return `https://offshoreleaks.icij.org/nodes/${id}`
+  return `${HOST}/nodes/${id}`
+}
+
+/** Nó conectado ao alvo no grafo (entidade offshore, endereço, intermediário). */
+export type IcijConnection = {
+  id: string
+  /** Entity | Address | Intermediary | Officer */
+  categoria: string | null
+  nome: string
+  jurisdicao: string | null
+  endereco: string | null
+  status: string | null
+  incorporacao: string | null
+  url: string | null
+}
+
+type RawNode = {
+  id?: number | string
+  data?: {
+    categories?: string[]
+    category?: string
+    properties?: Record<string, string | undefined>
+  }
+}
+
+/**
+ * Busca os nós CONECTADOS a um nó (1 nível do grafo): a partir de um Officer,
+ * traz a(s) Entity, Address e Intermediary ligados. Endpoint público:
+ * `GET /nodes/{id}.json` → array de nós conectados (HTTP 200).
+ * Enriquecimento best-effort: falha aqui não invalida o vínculo encontrado.
+ */
+export async function getConnections(id: string): Promise<IcijConnection[]> {
+  const { status, data } = await httpJson<RawNode[]>(`${HOST}/nodes/${id}.json`, {
+    retries: 2,
+    retryDelayMs: 1_500,
+    timeoutMs: 20_000,
+  })
+  if (status < 200 || status >= 300 || !Array.isArray(data)) return []
+  return data
+    .map((n) => {
+      const p = n.data?.properties ?? {}
+      const cats = n.data?.categories ?? (n.data?.category ? [n.data.category] : [])
+      const nid = n.id != null ? String(n.id) : ''
+      return {
+        id: nid,
+        categoria: cats[0] ?? null,
+        nome: p.name ?? p.address ?? '',
+        jurisdicao: p.jurisdiction_description ?? p.jurisdiction ?? null,
+        endereco: p.address ?? null,
+        status: p.status ?? null,
+        incorporacao: p.incorporation_date ?? null,
+        url: nid ? nodeUrl(nid) : null,
+      }
+    })
+    .filter((c) => c.nome)
 }
