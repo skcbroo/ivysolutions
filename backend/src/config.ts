@@ -17,7 +17,16 @@ const Env = z.object({
   SMTP_PORT: z.coerce.number().int().positive().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  LEAD_TO_EMAIL: z.string().email().optional(),
+  // Aceita um ou mais destinatários separados por vírgula.
+  LEAD_TO_EMAIL: z
+    .string()
+    .optional()
+    .refine(
+      (v) =>
+        v === undefined ||
+        v.split(',').every((e) => z.string().email().safeParse(e.trim()).success),
+      'LEAD_TO_EMAIL: lista de e-mails inválida',
+    ),
   LEAD_FROM_EMAIL: z.string().email().optional(),
 
   // OSINT / auth
