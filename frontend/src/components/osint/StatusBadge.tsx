@@ -1,4 +1,4 @@
-type Status = 'pendente' | 'rodando' | 'concluido' | 'erro'
+type Status = 'pendente' | 'rodando' | 'concluido' | 'concluido_parcial' | 'erro'
 
 type Props = {
   status: Status
@@ -35,6 +35,13 @@ const SKINS: Record<Status, Skin> = {
     color: 'var(--color-ivy-olive)',
     border: '1px solid var(--color-ivy-olive)',
     shape: 'square',
+  },
+  concluido_parcial: {
+    label: 'Parcial',
+    background: 'transparent',
+    color: 'var(--color-ivy-blood)',
+    border: '1px solid var(--color-ivy-blood)',
+    shape: 'tri',
   },
   erro: {
     label: 'Erro',

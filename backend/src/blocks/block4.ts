@@ -6,7 +6,6 @@ import {
   type UkOfficerSearchItem,
   type UkAppointment,
 } from '../apis/ukcompanies.js'
-import { config } from '../config.js'
 
 /**
  * Block 4: buscas internacionais. Produz dados ESTRUTURADOS para serem
@@ -51,6 +50,8 @@ export type Block4Result = {
   sancoes: Sancao[]
   empresasExterior: EmpresaExterior[]
   erros: number
+  /** Fontes que falharam (nome + mensagem). `erros === fontesFalhas.length`. */
+  fontesFalhas: { fonte: string; msg: string }[]
 }
 
 const uniq = (arr: string[]) => [...new Set(arr.filter((s) => s && s.length > 0))]
@@ -146,23 +147,27 @@ async function runUkCompanies(nome: string, logger?: Block4Logger): Promise<Empr
 
 /* ── Orquestração ── */
 
+export type Block4Opcoes = { opensanctions: boolean; companiesHouse: boolean }
+
 export async function runBlock4(
   nome: string,
+  opcoes: Block4Opcoes,
   logger?: Block4Logger,
   onProgress?: (atual: number, total: number) => Promise<void>,
 ): Promise<Block4Result> {
-  const result: Block4Result = { sancoes: [], empresasExterior: [], erros: 0 }
+  const result: Block4Result = { sancoes: [], empresasExterior: [], erros: 0, fontesFalhas: [] }
 
   type Fonte = { nome: string; run: () => Promise<void> }
-  const fontes: Fonte[] = [
-    {
+  const fontes: Fonte[] = []
+  if (opcoes.opensanctions) {
+    fontes.push({
       nome: 'OpenSanctions',
       run: async () => {
         result.sancoes.push(...(await runOpenSanctions(nome, logger)))
       },
-    },
-  ]
-  if (config.UK_COMPANIES_API_KEY) {
+    })
+  }
+  if (opcoes.companiesHouse) {
     fontes.push({
       nome: 'Companies House',
       run: async () => {
@@ -185,6 +190,7 @@ export async function runBlock4(
         err instanceof OpenSanctionsError || err instanceof UkCompaniesError
           ? `${err.status} ${err.message}`
           : (err as Error).message
+      result.fontesFalhas.push({ fonte: f.nome, msg })
       logger?.warn(`[block4] ${f.nome} falhou — ${msg}`)
     }
     await onProgress?.(i + 1, total)

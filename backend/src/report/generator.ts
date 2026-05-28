@@ -22,6 +22,16 @@ function truncMd(s: string, max: number): string {
   return single.length > max ? single.slice(0, max - 1) + '…' : single
 }
 
+/**
+ * Metadados de execução: permitem ao relatório distinguir um bloco que rodou e
+ * não achou nada ("Nenhum processo encontrado") de um que foi desativado no
+ * escopo ou falhou ("Bloco não executado").
+ */
+export type ReportMeta = {
+  plano: { processos: boolean; internacional: boolean }
+  falhas: { bloco: string; msg: string }[]
+}
+
 export function generateReport(
   nome: string,
   cpf: string,
@@ -29,7 +39,10 @@ export function generateReport(
   b2: Block2Result,
   analisesLlm?: Map<string, string> | null,
   internacional?: { sancoes: Sancao[]; empresasExterior: EmpresaExterior[] } | null,
+  meta?: ReportMeta | null,
 ): string {
+  const falhou = (bloco: string) => meta?.falhas.some((f) => f.bloco === bloco) ?? false
+  const falhaMsg = (bloco: string) => meta?.falhas.find((f) => f.bloco === bloco)?.msg
   const date = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   const linhas: string[] = []
 
@@ -49,7 +62,9 @@ export function generateReport(
   linhas.push('')
 
   linhas.push('## Empresas')
-  if (b1.empresas.length === 0) {
+  if (falhou('block1')) {
+    linhas.push(`_Bloco não executado: a busca de sociedades falhou (${falhaMsg('block1')})._`)
+  } else if (b1.empresas.length === 0) {
     linhas.push('_Nenhuma empresa encontrada._')
   } else {
     linhas.push('| CNPJ | Razão social | Situação | Capital | Cargo | Email | Telefone |')
@@ -70,7 +85,13 @@ export function generateReport(
   }
 
   linhas.push('## Processos judiciais')
-  if (b2.processos.length === 0) {
+  if (meta && !meta.plano.processos) {
+    linhas.push('_Bloco não executado: processos judiciais não foram incluídos no escopo desta investigação._')
+  } else if (meta && falhou('block1')) {
+    linhas.push('_Bloco não executado: depende das sociedades (Bloco 1), que falhou._')
+  } else if (falhou('block2')) {
+    linhas.push(`_Bloco não executado: a busca de processos falhou (${falhaMsg('block2')})._`)
+  } else if (b2.processos.length === 0) {
     linhas.push('_Nenhum processo encontrado._')
   } else {
     const criminais = b2.processos.filter((p) => p.criminal)
@@ -144,6 +165,25 @@ export function generateReport(
 
   const sancoes = internacional?.sancoes ?? []
   const empresasExterior = internacional?.empresasExterior ?? []
+
+  // Status das buscas internacionais (B4): só quando o bloco foi solicitado.
+  if (meta?.plano.internacional) {
+    const f4 = falhaMsg('block4')
+    const semResultado = sancoes.length === 0 && empresasExterior.length === 0
+    if (f4) {
+      linhas.push('## Buscas internacionais')
+      linhas.push(
+        semResultado
+          ? `_Bloco não executado: ${f4}._`
+          : `_⚠ Resultado parcial — uma ou mais fontes falharam: ${f4}._`,
+      )
+      linhas.push('')
+    } else if (semResultado) {
+      linhas.push('## Buscas internacionais')
+      linhas.push('_Nenhum vínculo internacional encontrado._')
+      linhas.push('')
+    }
+  }
 
   if (sancoes.length > 0) {
     linhas.push('## ⚠ Risco internacional (sanções / PEP)')

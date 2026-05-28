@@ -94,7 +94,7 @@ export type InvestigacaoLite = {
   updated_at: string
   nome: string
   cpf: string
-  status: 'pendente' | 'rodando' | 'concluido' | 'erro'
+  status: 'pendente' | 'rodando' | 'concluido' | 'concluido_parcial' | 'erro'
   progresso: {
     bloco_atual?: string
     etapa?: string
@@ -182,9 +182,12 @@ export type InvestigacaoFull = InvestigacaoLite & {
   empresas_vinculadas: EmpresaVinculada[]
   sancoes: Sancao[]
   empresas_exterior: EmpresaExterior[]
+  falhas: Falha[]
   relatorio_md: string | null
   relatorio_gerado_em: string | null
 }
+
+export type Falha = { bloco: string; msg: string }
 
 export type StatusResponse = {
   status: InvestigacaoLite['status']
@@ -192,12 +195,27 @@ export type StatusResponse = {
   capital_total: string | null
   pje_count: number | null
   erro_msg: string | null
+  falhas?: Falha[]
 }
 
 export type AdminUser = OsintUser & {
   active: boolean
   must_change_password: boolean
   created_at: string
+}
+
+export type Opcoes = {
+  processos: boolean
+  analiseLlm: boolean
+  internacional: { opensanctions: boolean; companiesHouse: boolean }
+}
+
+export type Capabilities = {
+  processos: boolean
+  analiseLlm: boolean
+  internacional: boolean
+  opensanctions: boolean
+  companiesHouse: boolean
 }
 
 export const osintApi = {
@@ -240,10 +258,13 @@ export const osintApi = {
       method: 'POST',
     }),
 
-  criarInvestigacao: (nome: string, cpf: string) =>
+  capabilities: (signal?: AbortSignal) =>
+    request<Capabilities>('/api/investigacoes/capabilities', { signal }),
+
+  criarInvestigacao: (nome: string, cpf: string, opcoes?: Opcoes) =>
     request<InvestigacaoLite>('/api/investigacoes', {
       method: 'POST',
-      body: JSON.stringify({ nome, cpf }),
+      body: JSON.stringify({ nome, cpf, opcoes }),
     }),
 
   listar: (signal?: AbortSignal) =>
