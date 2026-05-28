@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { track } from '../lib/analytics'
 
 type NavLink = { to: string; label: string; hash?: boolean }
 
@@ -99,6 +100,7 @@ export function TopNav() {
             href={WHATSAPP_URL}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => track('whatsapp_click', { location: 'topnav' })}
             aria-label="Falar com a IVY no WhatsApp"
             className="ivy-meta inline-flex items-center gap-2"
             style={whatsStyle}

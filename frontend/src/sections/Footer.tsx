@@ -1,3 +1,5 @@
+import { track } from '../lib/analytics'
+
 const PHONE_DISPLAY = '+55 61 99591-3312'
 const PHONE_TEL = '+5561995913312'
 const WHATSAPP_URL = `https://wa.me/5561995913312?text=${encodeURIComponent(
@@ -56,6 +58,7 @@ export function Footer() {
             href={WHATSAPP_URL}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => track('whatsapp_click', { location: 'footer' })}
             className="ivy-meta inline-flex items-center gap-3 mt-6"
             style={{
               border: '1px solid var(--color-ivy-bone)',

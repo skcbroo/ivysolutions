@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { apiUrl } from '../lib/api'
+import { track } from '../lib/analytics'
 
 type Status = 'idle' | 'sending' | 'sent' | 'error'
 
@@ -107,6 +108,7 @@ export function Contact() {
         }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      track('lead_submit', { method: 'form' })
       setStatus('sent')
       setValues({ name: '', email: '', phone: '' })
       setTouched({})
