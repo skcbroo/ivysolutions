@@ -51,6 +51,7 @@ const Env = z.object({
     .optional()
     .transform((v) => v === 'true' || v === '1'),
   OPENSANCTIONS_API_KEY: z.string().optional(),
+  UK_COMPANIES_API_KEY: z.string().optional(),
 
   // Bootstrap inicial: se nenhum admin ativo existir no DB, cria um a partir
   // destas vars (no boot do server). Idempotente: rodadas posteriores são no-op.
