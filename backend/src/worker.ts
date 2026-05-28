@@ -169,8 +169,12 @@ async function runWorkerInner(
         empresasExterior = b4.empresasExterior
         if (sancoes.length > 0) await internacionalRepo.insertSancoes(inv.id, sancoes)
         if (empresasExterior.length > 0) await internacionalRepo.insertEmpresasExterior(inv.id, empresasExterior)
-        if (b4.erros > 0 && sancoes.length === 0 && empresasExterior.length === 0) {
-          falhas.push({ bloco: 'block4', msg: 'fontes internacionais sem resposta' })
+        // Registra falha sempre que QUALQUER fonte solicitada falhar — mesmo que
+        // a outra tenha retornado dados. Caso contrário, uma fonte caída fica
+        // invisível e a investigação seria finalizada como 'concluido'.
+        if (b4.fontesFalhas.length > 0) {
+          const detalhe = b4.fontesFalhas.map((f) => `${f.fonte}: ${f.msg}`).join('; ')
+          falhas.push({ bloco: 'block4', msg: `fontes internacionais com falha — ${detalhe}` })
         }
         logger.info(`#${inv.id} bloco4 ok — ${sancoes.length} sanção(ões), ${empresasExterior.length} sociedade(s) ext`)
       }
@@ -184,7 +188,9 @@ async function runWorkerInner(
   }
 
   // ── RELATÓRIO (sempre gera com o que conseguiu) ──
-  const md = generateReport(inv.nome, inv.cpf, b1 ?? EMPTY_B1, b2 ?? EMPTY_B2, analises, { sancoes, empresasExterior })
+  // Passa plano + falhas para o gerador distinguir "não executado" de
+  // "nada encontrado" em blocos pulados/falhos.
+  const md = generateReport(inv.nome, inv.cpf, b1 ?? EMPTY_B1, b2 ?? EMPTY_B2, analises, { sancoes, empresasExterior }, { plano, falhas })
   await relatoriosRepo.upsert(inv.id, md)
 
   // ── STATUS FINAL ──

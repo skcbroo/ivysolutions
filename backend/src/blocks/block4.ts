@@ -50,6 +50,8 @@ export type Block4Result = {
   sancoes: Sancao[]
   empresasExterior: EmpresaExterior[]
   erros: number
+  /** Fontes que falharam (nome + mensagem). `erros === fontesFalhas.length`. */
+  fontesFalhas: { fonte: string; msg: string }[]
 }
 
 const uniq = (arr: string[]) => [...new Set(arr.filter((s) => s && s.length > 0))]
@@ -153,7 +155,7 @@ export async function runBlock4(
   logger?: Block4Logger,
   onProgress?: (atual: number, total: number) => Promise<void>,
 ): Promise<Block4Result> {
-  const result: Block4Result = { sancoes: [], empresasExterior: [], erros: 0 }
+  const result: Block4Result = { sancoes: [], empresasExterior: [], erros: 0, fontesFalhas: [] }
 
   type Fonte = { nome: string; run: () => Promise<void> }
   const fontes: Fonte[] = []
@@ -188,6 +190,7 @@ export async function runBlock4(
         err instanceof OpenSanctionsError || err instanceof UkCompaniesError
           ? `${err.status} ${err.message}`
           : (err as Error).message
+      result.fontesFalhas.push({ fonte: f.nome, msg })
       logger?.warn(`[block4] ${f.nome} falhou — ${msg}`)
     }
     await onProgress?.(i + 1, total)

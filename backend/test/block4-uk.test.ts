@@ -69,5 +69,30 @@ describe('runBlock4 — Companies House', () => {
     const r = await runBlock4('Sidnei', { opensanctions: true, companiesHouse: true }, silentLogger)
     expect(r.erros).toBe(1)
     expect(r.empresasExterior).toEqual([])
+    expect(r.fontesFalhas).toEqual([{ fonte: 'Companies House', msg: expect.stringContaining('uk down') }])
+  })
+
+  // Regressão (bug #1): a fonte que falha precisa ser reportada MESMO quando a
+  // outra retorna dados. Antes, o worker só registrava falha de B4 quando os
+  // dois arrays vinham vazios — uma fonte caída ficava invisível e a
+  // investigação era finalizada como 'concluido'.
+  it('reporta a fonte que falhou mesmo quando a outra retorna dados', async () => {
+    matchPersonMock.mockResolvedValue([
+      {
+        id: 'NK-1',
+        caption: 'Sidnei',
+        schema: 'Person',
+        score: 0.95,
+        match: true,
+        datasets: ['us_ofac_sdn'],
+        properties: {},
+      },
+    ])
+    searchOfficersMock.mockRejectedValueOnce(new Error('uk down'))
+    const r = await runBlock4('Sidnei', { opensanctions: true, companiesHouse: true }, silentLogger)
+    expect(r.sancoes.length).toBeGreaterThan(0)
+    expect(r.empresasExterior).toEqual([])
+    expect(r.erros).toBe(1)
+    expect(r.fontesFalhas).toEqual([{ fonte: 'Companies House', msg: expect.stringContaining('uk down') }])
   })
 })

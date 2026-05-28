@@ -60,6 +60,7 @@ describe('runBlock4 — OpenSanctions', () => {
     const r = await runBlock4('Fulano', { opensanctions: true, companiesHouse: false }, silentLogger)
     expect(r.sancoes).toHaveLength(0)
     expect(r.erros).toBe(1)
+    expect(r.fontesFalhas).toEqual([{ fonte: 'OpenSanctions', msg: expect.stringContaining('boom') }])
   })
 
   it('chama onProgress no início e no fim', async () => {
