@@ -27,7 +27,6 @@ const Env = z.object({
     .string()
     .optional()
     .transform((v) => v === 'true' || v === '1'),
-  DATAJUD_API_KEY: z.string().optional(),
 
   // Block 3: análise de comunicados via Claude. Atrás de flag.
   BLOCK3_ENABLED: z
