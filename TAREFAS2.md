@@ -51,27 +51,19 @@ Casos inválidos a rejeitar além do cálculo: sequências repetidas (`000.000.0
 
 ## 3 — Busca reversa por email e endereço na base nacional (Block 1.5)
 
-Após o Block 1 (empresas do alvo), coletar todos os emails e endereços encontrados e realizar uma busca reversa na base de CNPJs para descobrir outras empresas que compartilham esses atributos — inclusive empresas domiciliadas no exterior que possuem CNPJ brasileiro mas não expõem o QSA explicitamente. O email de contato é o elo que as denuncia.
+> ⚠ **Em avaliação — implementar por último.** Viabilidade depende de validação local da base de CNPJs da Receita Federal antes de qualquer implementação.
 
-### Contexto
-- A busca reversa por email pode revelar empresas estrangeiras com CNPJ BR que usam o mesmo contato de uma empresa já listada — isso é um indício forte de vínculo não declarado.
-- A busca reversa por endereço é voltada apenas para empresas BR no mesmo local (complementa o alerta de endereço compartilhado já existente no Block 1).
-- O usuário está baixando a base completa de CNPJs da Receita Federal para validar a viabilidade dessa busca localmente antes de implementar.
+A ideia: após o Block 1, usar os emails e endereços coletados das empresas do alvo para fazer uma busca reversa na base completa de CNPJs — revelando empresas correlatas que não aparecem no QSA, inclusive estrangeiras com CNPJ BR que compartilham o mesmo email de contato.
 
-### Fluxo esperado
-1. Block 1 termina → coleta lista de emails únicos e chaves de endereço de todas as empresas do alvo
-2. Para cada email: busca na base de CNPJs quais outros CNPJs têm aquele email cadastrado
-3. Para cada endereço: busca na base quais outros CNPJs estão no mesmo local
-4. CNPJs novos encontrados são incorporados ao dossiê como "empresas correlatas" com flag de origem (`via email compartilhado` / `via endereço compartilhado`)
-5. Se algum CNPJ correlato tiver `pais != BR` (domicílio estrangeiro) → acende alerta e dispara busca internacional para aquela empresa (Block 4)
+### Fluxo esperado (quando viabilizado)
+1. Block 1 termina → coleta emails únicos e chaves de endereço de todas as empresas
+2. Busca reversa por email na base → outros CNPJs com o mesmo contato
+3. Busca reversa por endereço → outros CNPJs no mesmo local (apenas BR)
+4. CNPJs novos entram no dossiê como "empresas correlatas" com flag de origem
+5. Se empresa correlata tiver domicílio estrangeiro → alerta + dispara Block 4
 
-### Checklist
-- [ ] Validar base de CNPJs da Receita: confirmar que os campos de email e endereço estão presentes e em qual arquivo/tabela
-- [ ] Definir estratégia de armazenamento: importar para Postgres local ou consultar os CSVs diretamente
-- [ ] Criar `backend/src/apis/cnpjbase.ts` — funções `searchByEmail(email: string)` e `searchByAddress(key: string)` contra a base local
-- [ ] Integrar ao worker após Block 1, antes do Block 2 — novo passo "Block 1.5"
-- [ ] Armazenar empresas correlatas no banco com flag de origem e exibir no frontend (seção separada no dossiê)
-- [ ] Alerta automático quando empresa correlata tiver domicílio estrangeiro → acionar Block 4
+### Próximo passo
+- [ ] Validar a base baixada: confirmar presença dos campos de email e endereço e definir estratégia (importar para Postgres ou consultar CSVs diretamente)
 
 ---
 
