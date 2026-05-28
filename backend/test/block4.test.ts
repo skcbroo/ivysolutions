@@ -31,7 +31,7 @@ afterEach(() => vi.clearAllMocks())
 describe('runBlock4 — OpenSanctions', () => {
   it('mapeia sanção com país/programa/lista/alias/url', async () => {
     matchPersonMock.mockResolvedValueOnce([mkResult()])
-    const r = await runBlock4('Fulano', silentLogger)
+    const r = await runBlock4('Fulano', { opensanctions: true, companiesHouse: false }, silentLogger)
     expect(r.sancoes).toHaveLength(1)
     const s = r.sancoes[0]
     expect(s.paises).toContain('ru')
@@ -48,7 +48,7 @@ describe('runBlock4 — OpenSanctions', () => {
       mkResult({ id: 'B', match: false, score: MATCH_SCORE_THRESHOLD + 0.05 }),
       mkResult({ id: 'C', match: true, score: 0.1 }),
     ])
-    const r = await runBlock4('Fulano', silentLogger)
+    const r = await runBlock4('Fulano', { opensanctions: true, companiesHouse: false }, silentLogger)
     expect(r.sancoes.map((s) => s.url)).toEqual([
       'https://www.opensanctions.org/entities/B/',
       'https://www.opensanctions.org/entities/C/',
@@ -57,7 +57,7 @@ describe('runBlock4 — OpenSanctions', () => {
 
   it('conta erro e não quebra quando a API falha', async () => {
     matchPersonMock.mockRejectedValueOnce(new Error('boom'))
-    const r = await runBlock4('Fulano', silentLogger)
+    const r = await runBlock4('Fulano', { opensanctions: true, companiesHouse: false }, silentLogger)
     expect(r.sancoes).toHaveLength(0)
     expect(r.erros).toBe(1)
   })
@@ -65,7 +65,7 @@ describe('runBlock4 — OpenSanctions', () => {
   it('chama onProgress no início e no fim', async () => {
     matchPersonMock.mockResolvedValueOnce([])
     const onProgress = vi.fn(async () => {})
-    await runBlock4('Fulano', silentLogger, onProgress)
+    await runBlock4('Fulano', { opensanctions: true, companiesHouse: false }, silentLogger, onProgress)
     expect(onProgress).toHaveBeenCalledWith(0, 1)
     expect(onProgress).toHaveBeenCalledWith(1, 1)
   })

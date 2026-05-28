@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Habilita o Companies House mockando a config com a key presente.
-vi.mock('../src/config.js', () => ({ config: { UK_COMPANIES_API_KEY: 'k' }, isProd: false }))
-
 const { matchPersonMock } = vi.hoisted(() => ({ matchPersonMock: vi.fn() }))
 vi.mock('../src/apis/opensanctions.js', async () => {
   const actual =
@@ -46,7 +43,7 @@ describe('runBlock4 — Companies House', () => {
       },
     ])
 
-    const r = await runBlock4('Sidnei Piva de Jesus', silentLogger)
+    const r = await runBlock4('Sidnei Piva de Jesus', { opensanctions: true, companiesHouse: true }, silentLogger)
     expect(r.empresasExterior).toHaveLength(1)
     const e = r.empresasExterior[0]
     expect(e.empresa).toBe('ACME LTD')
@@ -62,14 +59,14 @@ describe('runBlock4 — Companies House', () => {
     searchOfficersMock.mockResolvedValueOnce([
       { title: 'OUTRA PESSOA QUALQUER', links: { self: '/officers/z/appointments' } },
     ])
-    const r = await runBlock4('Sidnei Piva de Jesus', silentLogger)
+    const r = await runBlock4('Sidnei Piva de Jesus', { opensanctions: true, companiesHouse: true }, silentLogger)
     expect(r.empresasExterior).toHaveLength(0)
     expect(getAppointmentsMock).not.toHaveBeenCalled()
   })
 
   it('uma fonte falhando não derruba a outra', async () => {
     searchOfficersMock.mockRejectedValueOnce(new Error('uk down'))
-    const r = await runBlock4('Sidnei', silentLogger)
+    const r = await runBlock4('Sidnei', { opensanctions: true, companiesHouse: true }, silentLogger)
     expect(r.erros).toBe(1)
     expect(r.empresasExterior).toEqual([])
   })

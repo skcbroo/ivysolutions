@@ -19,6 +19,15 @@ export { Tabs } from './Tabs'
 export { SortableTh, FilterChip } from './Tabs'
 export { ContatoToggle, ContatoCell } from './TabEmpresas'
 
+const isFinal = (s: string) => s === 'concluido' || s === 'concluido_parcial' || s === 'erro'
+
+const BLOCO_LABEL: Record<string, string> = {
+  block1: 'Sociedades',
+  block2: 'Processos',
+  block3: 'Análise patrimonial (IA)',
+  block4: 'Buscas internacionais',
+}
+
 export function Relatorio() {
   const { id } = useParams()
   const [data, setData] = useState<InvestigacaoFull | null>(null)
@@ -37,7 +46,7 @@ export function Relatorio() {
       const d = await osintApi.buscar(id, ctl.signal)
       setData(d)
       setError(null)
-      if (d.status === 'concluido' || d.status === 'erro') doneRef.current = true
+      if (isFinal(d.status)) doneRef.current = true
     } catch (err) {
       if (isAbortError(err)) return
       setError(err instanceof Error ? err.message : 'erro de rede')
@@ -63,7 +72,7 @@ export function Relatorio() {
             }
           : prev,
       )
-      if (s.status === 'concluido' || s.status === 'erro') {
+      if (isFinal(s.status)) {
         doneRef.current = true
         await loadFull()
       }
@@ -177,6 +186,27 @@ export function Relatorio() {
         )}
 
         <SancoesFlag sancoes={data.sancoes ?? []} />
+
+        {data.status === 'concluido_parcial' && (data.falhas?.length ?? 0) > 0 && (
+          <div
+            className="mb-10 p-6"
+            style={{ border: '1px solid var(--color-ivy-blood)', background: 'oklch(0.36 0.135 28 / 0.06)' }}
+          >
+            <p className="ivy-meta" style={{ color: 'var(--color-ivy-blood)' }}>
+              ⚠ Investigação concluída parcialmente
+            </p>
+            <p className="mt-2" style={{ color: 'var(--color-ivy-mid)', fontSize: 14, lineHeight: 1.5 }}>
+              Alguns blocos falharam e foram omitidos. O restante do dossiê está completo.
+            </p>
+            <ul className="ivy-list mt-3" style={{ color: 'var(--color-ivy-near)' }}>
+              {data.falhas.map((f, i) => (
+                <li key={i} style={{ fontSize: 'clamp(14px,1vw,16px)', lineHeight: 1.5 }}>
+                  <strong>{BLOCO_LABEL[f.bloco] ?? f.bloco}:</strong> {f.msg}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {data.status === 'erro' && data.erro_msg && (
           <div
