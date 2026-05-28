@@ -6,6 +6,7 @@ import { useVisibleInterval } from '../../../hooks/useVisibleInterval'
 import { isAbortError, osintApi, type InvestigacaoFull } from '../../../lib/osint'
 import { DossieProtocolo } from './DossieProtocolo'
 import { formatDateTime } from './format'
+import { unificarEmpresas } from './empresas'
 import { RunningPanel } from './RunningPanel'
 import { SancoesFlag } from './SancoesFlag'
 import { OffshoreFlag } from './OffshoreFlag'
@@ -230,7 +231,7 @@ export function Relatorio() {
           tab={tab}
           onChange={setTab}
           counts={{
-            empresas: data.empresas.length + (data.empresas_exterior?.length ?? 0),
+            empresas: unificarEmpresas(data).length,
             processos: totalProcessos,
           }}
         />

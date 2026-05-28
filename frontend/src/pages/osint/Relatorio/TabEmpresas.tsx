@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useSortable } from '../../../hooks/useSortable'
-import type { Empresa, EmpresaExterior, InvestigacaoFull } from '../../../lib/osint'
-import { formatBRL, formatCnpj } from './format'
+import type { InvestigacaoFull } from '../../../lib/osint'
+import { formatBRL } from './format'
 import { Td, Th, EstadoVazio } from './shared'
 import { estadoEmpresas } from './estadoBlocos'
+import { unificarEmpresas, JURIS_LABEL, type EmpresaRow as Row } from './empresas'
 import { FilterBar, FilterChip, SortableTh } from './Tabs'
 
 type ContatoView = 'ambos' | 'email' | 'telefone'
@@ -11,76 +12,11 @@ type ContatoView = 'ambos' | 'email' | 'telefone'
 type EmpresaSortKey = 'ident' | 'nome' | 'situacao' | 'capital' | 'cargo' | 'jurisdicao'
 type EmpresaFiltro = 'todas' | 'ativas' | 'inaptas' | 'exterior' | 'com_alerta'
 
-/** Linha unificada: empresas BR (Block 1) + sociedades no exterior (Block 4). */
-type Row = {
-  key: string
-  exterior: boolean
-  jurisdicao: string // 'BR' | 'GB' ...
-  ident: string // CNPJ formatado (BR) ou nº de registro (exterior)
-  nome: string
-  situacao: string | null
-  ativa: boolean
-  capital: number | null
-  cargo: string | null
-  periodo: string | null // exterior: 'AAAA → AAAA/ativo'
-  alertas: string[]
-  emails: string[]
-  telefones: string[]
-  url: string | null
-}
-
-const JURIS_LABEL: Record<string, string> = { BR: 'Brasil', GB: 'Reino Unido' }
-const ano = (d: string | null) => (d && /^\d{4}/.test(d) ? d.slice(0, 4) : d ?? '?')
-
-function brToRow(e: Empresa): Row {
-  return {
-    key: `br-${e.id}`,
-    exterior: false,
-    jurisdicao: 'BR',
-    ident: formatCnpj(e.cnpj14),
-    nome: e.nome ?? 'razão social não localizada',
-    situacao: e.situacao,
-    ativa: !!(e.situacao && /ATIVA/i.test(e.situacao)),
-    capital: e.capital == null ? null : Number(e.capital),
-    cargo: e.cargo,
-    periodo: null,
-    alertas: e.alertas ?? [],
-    emails: e.emails ?? [],
-    telefones: e.telefones ?? [],
-    url: null,
-  }
-}
-
-function extToRow(e: EmpresaExterior, i: number): Row {
-  return {
-    key: `ext-${i}`,
-    exterior: true,
-    jurisdicao: e.jurisdicao,
-    ident: e.numero ?? '—',
-    nome: e.empresa,
-    situacao: e.saida ? 'Saída registrada' : 'Vínculo ativo',
-    ativa: !e.saida,
-    capital: null,
-    cargo: e.cargo,
-    periodo: `${ano(e.entrada)} → ${e.saida ? ano(e.saida) : 'ativo'}`,
-    alertas: [],
-    emails: [],
-    telefones: [],
-    url: e.url,
-  }
-}
-
 export function TabEmpresas({ data }: { data: InvestigacaoFull }) {
   const [contatoView, setContatoView] = useState<ContatoView>('ambos')
   const [filtro, setFiltro] = useState<EmpresaFiltro>('todas')
 
-  const rows = useMemo<Row[]>(
-    () => [
-      ...data.empresas.map(brToRow),
-      ...(data.empresas_exterior ?? []).map(extToRow),
-    ],
-    [data.empresas, data.empresas_exterior],
-  )
+  const rows = useMemo<Row[]>(() => unificarEmpresas(data), [data])
 
   const filtered = useMemo(() => {
     if (filtro === 'ativas') return rows.filter((r) => r.ativa)
@@ -163,11 +99,10 @@ export function TabEmpresas({ data }: { data: InvestigacaoFull }) {
                 <Td mono>{r.ident}</Td>
                 <Td bold>
                   {r.nome}
-                  {r.periodo && (
-                    <span className="ivy-foot block mt-1" style={{ color: 'var(--color-ivy-mid)' }}>
-                      {r.periodo}
-                    </span>
-                  )}
+                  <span className="ivy-foot block mt-1" style={{ color: 'var(--color-ivy-mid)' }}>
+                    Fonte: {r.origem}
+                    {r.periodo ? ` · ${r.periodo}` : ''}
+                  </span>
                   {r.alertas.length > 0 && (
                     <span className="ivy-foot block mt-1" style={{ color: 'var(--color-ivy-blood)' }}>
                       ⚠ {r.alertas.join(' · ')}
@@ -211,6 +146,7 @@ export function TabEmpresas({ data }: { data: InvestigacaoFull }) {
               {r.capital != null && <DatumMobile label="Capital" value={formatBRL(r.capital)} />}
               {r.cargo && <DatumMobile label="Cargo" value={r.cargo} />}
               {r.periodo && <DatumMobile label="Período" value={r.periodo} />}
+              <DatumMobile label="Fonte" value={r.origem} />
             </dl>
             {!r.exterior && (r.emails.length > 0 || r.telefones.length > 0) && (
               <div className="mt-3 flex flex-col gap-1">

@@ -1,6 +1,7 @@
 import type { InvestigacaoFull } from '../../../lib/osint'
 import { formatBRL } from './format'
 import { estadoEmpresas, estadoProcessos, rotuloEstado, type EstadoBloco } from './estadoBlocos'
+import { unificarEmpresas } from './empresas'
 
 /**
  * Faixa de "dado de protocolo" do dossiê. Listamento semântico denso, à maneira
@@ -8,13 +9,16 @@ import { estadoEmpresas, estadoProcessos, rotuloEstado, type EstadoBloco } from 
  * escopo / falhou) de "rodou e achou 0".
  */
 export function DossieProtocolo({ data }: { data: InvestigacaoFull }) {
-  const empresas = estadoEmpresas(data)
+  // Contagem de empresas é o TOTAL unificado (BR + UK + ICIJ, deduplicado),
+  // não só o Bloco 1 — senão um alvo só com vínculo offshore apareceria como 0.
+  const totalEmpresas = unificarEmpresas(data).length
+  const empresas: EstadoBloco = totalEmpresas > 0 ? { tipo: 'ok' } : estadoEmpresas(data)
   const processos = estadoProcessos(data)
   const criminaisN = data.processos.filter((p) => p.criminal).length
 
   return (
     <dl className="flex flex-wrap items-baseline gap-x-12 md:gap-x-16 gap-y-8 mb-8">
-      <Datum label="Empresas mapeadas" estado={empresas} value={data.empresas.length} />
+      <Datum label="Empresas mapeadas" estado={empresas} value={totalEmpresas} />
       <Datum
         label="Capital declarado"
         estado={empresas}
