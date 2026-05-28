@@ -105,6 +105,8 @@ export type InvestigacaoLite = {
   capital_total: string | null
   pje_count: number | null
   erro_msg: string | null
+  /** Escopo escolhido — pode vir parcial/ausente em registros antigos. */
+  opcoes?: Opcoes
 }
 
 export type Empresa = {
@@ -205,6 +207,8 @@ export type InvestigacaoFull = InvestigacaoLite & {
   empresas_exterior: EmpresaExterior[]
   offshore: VinculoOffshore[]
   falhas: Falha[]
+  /** Escopo escolhido na criação — distingue "não rodado" de "nada encontrado". */
+  opcoes: Opcoes
   relatorio_md: string | null
   relatorio_gerado_em: string | null
 }

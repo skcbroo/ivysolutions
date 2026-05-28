@@ -5,7 +5,7 @@ import { StatusBadge } from '../../../components/osint/StatusBadge'
 import { useVisibleInterval } from '../../../hooks/useVisibleInterval'
 import { isAbortError, osintApi, type InvestigacaoFull } from '../../../lib/osint'
 import { DossieProtocolo } from './DossieProtocolo'
-import { formatBRL, formatDateTime } from './format'
+import { formatDateTime } from './format'
 import { RunningPanel } from './RunningPanel'
 import { SancoesFlag } from './SancoesFlag'
 import { OffshoreFlag } from './OffshoreFlag'
@@ -144,7 +144,6 @@ export function Relatorio() {
 
   const isRunning = data.status === 'rodando' || data.status === 'pendente'
   const totalProcessos = data.processos.length || (data.pje_count ?? 0)
-  const criminais = data.processos.filter((p) => p.criminal).length
 
   return (
     <OsintLayout
@@ -224,12 +223,7 @@ export function Relatorio() {
           </div>
         )}
 
-        <DossieProtocolo
-          empresas={data.empresas.length}
-          capital={formatBRL(data.capital_total)}
-          processos={totalProcessos}
-          criminais={criminais}
-        />
+        <DossieProtocolo data={data} />
         <hr className="ivy-rule-olive mb-10" />
 
         <Tabs

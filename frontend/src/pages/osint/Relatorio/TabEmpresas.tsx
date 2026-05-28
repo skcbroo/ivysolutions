@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { useSortable } from '../../../hooks/useSortable'
 import type { Empresa, EmpresaExterior, InvestigacaoFull } from '../../../lib/osint'
 import { formatBRL, formatCnpj } from './format'
-import { Td, Th } from './shared'
+import { Td, Th, EstadoVazio } from './shared'
+import { estadoEmpresas } from './estadoBlocos'
 import { FilterBar, FilterChip, SortableTh } from './Tabs'
 
 type ContatoView = 'ambos' | 'email' | 'telefone'
@@ -103,11 +104,7 @@ export function TabEmpresas({ data }: { data: InvestigacaoFull }) {
   })
 
   if (rows.length === 0) {
-    return (
-      <p className="ivy-meta" style={{ color: 'var(--color-ivy-mid)' }}>
-        Nenhuma empresa registrada.
-      </p>
-    )
+    return <EstadoVazio estado={estadoEmpresas(data)} vazioTexto="Nenhuma empresa encontrada." />
   }
 
   const temEmail = rows.some((r) => r.emails.length > 0)

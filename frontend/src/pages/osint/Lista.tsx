@@ -154,16 +154,14 @@ export function Lista() {
                         )}
                       </Td>
                       <Td>
-                        {inv.capital_total ? (
-                          <>
-                            <span style={{ color: 'var(--color-ivy-near)', fontWeight: 600 }}>
-                              {formatBRL(inv.capital_total)}
-                            </span>
-                            <span className="ivy-foot block" style={{ color: 'var(--color-ivy-mid)' }}>
-                              {inv.pje_count ?? 0} processos
-                            </span>
-                          </>
-                        ) : null}
+                        <span style={{ color: 'var(--color-ivy-near)', fontWeight: 600 }}>
+                          {inv.capital_total ? formatBRL(inv.capital_total) : '—'}
+                        </span>
+                        <span className="ivy-foot block" style={{ color: 'var(--color-ivy-mid)' }}>
+                          {inv.opcoes?.processos === false
+                            ? 'Processos não rodados'
+                            : `${inv.pje_count ?? 0} processos`}
+                        </span>
                       </Td>
                       <Td align="right">
                         <Link
@@ -236,7 +234,7 @@ export function Lista() {
                         {inv.erro_msg.slice(0, 80)}
                       </p>
                     )}
-                    {inv.capital_total && (
+                    {(inv.status === 'concluido' || inv.status === 'concluido_parcial') && (
                       <dl className="mt-4 flex gap-6 flex-wrap">
                         <div>
                           <dt className="ivy-foot" style={{ color: 'var(--color-ivy-mid)' }}>
@@ -246,7 +244,7 @@ export function Lista() {
                             className="ivy-display"
                             style={{ fontSize: 22, lineHeight: 1, color: 'var(--color-ivy-near)', margin: 0 }}
                           >
-                            {formatBRL(inv.capital_total)}
+                            {inv.capital_total ? formatBRL(inv.capital_total) : '—'}
                           </dd>
                         </div>
                         <div>
@@ -255,9 +253,15 @@ export function Lista() {
                           </dt>
                           <dd
                             className="ivy-display"
-                            style={{ fontSize: 22, lineHeight: 1, color: 'var(--color-ivy-near)', margin: 0 }}
+                            style={{
+                              fontSize: inv.opcoes?.processos === false ? 13 : 22,
+                              lineHeight: 1,
+                              color: inv.opcoes?.processos === false ? 'var(--color-ivy-mid)' : 'var(--color-ivy-near)',
+                              margin: 0,
+                              paddingTop: inv.opcoes?.processos === false ? 6 : 0,
+                            }}
                           >
-                            {(inv.pje_count ?? 0).toLocaleString('pt-BR')}
+                            {inv.opcoes?.processos === false ? 'não rodado' : (inv.pje_count ?? 0).toLocaleString('pt-BR')}
                           </dd>
                         </div>
                       </dl>

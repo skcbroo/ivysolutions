@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { useSortable } from '../../../hooks/useSortable'
 import type { InvestigacaoFull } from '../../../lib/osint'
 import { truncStr } from './format'
-import { Td } from './shared'
+import { Td, EstadoVazio } from './shared'
+import { estadoProcessos } from './estadoBlocos'
 import { FilterBar, FilterChip, SortableTh } from './Tabs'
 
 type ProcessoFiltro = 'todos' | 'criminal' | 'pessoal' | 'empresarial'
@@ -27,11 +28,7 @@ export function TabProcessos({ data }: { data: InvestigacaoFull }) {
   }, [data.processos, filtro, tribunalFiltro])
 
   if (data.processos.length === 0) {
-    return (
-      <p className="ivy-meta" style={{ color: 'var(--color-ivy-mid)' }}>
-        Nenhum processo registrado.
-      </p>
-    )
+    return <EstadoVazio estado={estadoProcessos(data)} vazioTexto="Nenhum processo encontrado." />
   }
   const totalCriminais = data.processos.filter((p) => p.criminal).length
   const totalPessoais = data.processos.filter((p) => p.vinculo === 'pessoal').length
