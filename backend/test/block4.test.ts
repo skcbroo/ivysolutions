@@ -63,6 +63,15 @@ describe('runBlock4 — OpenSanctions', () => {
     expect(r.fontesFalhas).toEqual([{ fonte: 'OpenSanctions', msg: expect.stringContaining('boom') }])
   })
 
+  it('hit com match=true e score ausente → score 0 (não quebra o relatório)', async () => {
+    matchPersonMock.mockResolvedValueOnce([mkResult({ match: true, score: undefined as unknown as number })])
+    const r = await runBlock4('Fulano', { opensanctions: true, companiesHouse: false, icij: false }, silentLogger)
+    expect(r.sancoes).toHaveLength(1)
+    expect(r.sancoes[0].score).toBe(0)
+    // garante que .toFixed() (usado no gerador de relatório) não estoura
+    expect(() => r.sancoes[0].score.toFixed(2)).not.toThrow()
+  })
+
   it('chama onProgress no início e no fim', async () => {
     matchPersonMock.mockResolvedValueOnce([])
     const onProgress = vi.fn(async () => {})

@@ -131,4 +131,22 @@ describe('unificarEmpresas — todas as fontes + dedup', () => {
     expect(out[0].nome).toBe('FLEG TRADING LTD')
     expect(out[0].origem).toBe('ICIJ')
   })
+
+  it('inclui entidade offshore mesmo se a categoria não foi traduzida ("Entity")', () => {
+    const data = {
+      empresas: [],
+      empresas_exterior: [],
+      offshore: [
+        {
+          entidade: 'X', tipo: 'Officer', dataset: 'panama-papers', score: 50, match: false, url: null,
+          conexoes: [
+            { id: '9', categoria: 'Entity', nome: 'ACME OFFSHORE LTD', jurisdicao: null, endereco: null, status: null, incorporacao: null, url: null },
+          ],
+        },
+      ],
+    } as unknown as InvestigacaoFull
+    const out = unificarEmpresas(data)
+    expect(out).toHaveLength(1)
+    expect(out[0].nome).toBe('ACME OFFSHORE LTD')
+  })
 })

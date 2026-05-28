@@ -138,8 +138,10 @@ export function dedupEmpresas(rows: EmpresaRow[]): EmpresaRow[] {
 
 /** Monta as linhas de empresas de TODAS as fontes e deduplica. */
 export function unificarEmpresas(data: InvestigacaoFull): EmpresaRow[] {
+  // Aceita o label PT-BR ('Empresa offshore') e o fallback em inglês ('Entity'),
+  // caso a normalização do backend não tenha mapeado a categoria.
   const offEntities = (data.offshore ?? []).flatMap((v) =>
-    (v.conexoes ?? []).filter((c) => (c.categoria ?? '').toLowerCase().includes('empresa')),
+    (v.conexoes ?? []).filter((c) => /empresa|entity/i.test(c.categoria ?? '')),
   )
   const rows: EmpresaRow[] = [
     ...data.empresas.map(brToRow),

@@ -113,6 +113,18 @@ describe('runBlock4 — ICIJ Offshore Leaks', () => {
     expect(r.fontesFalhas).toEqual([])
   })
 
+  it('limita o nº de vínculos enriquecidos (teto de chamadas a getConnections)', async () => {
+    // 10 hits que casam no 1º dataset; o teto interno é 8.
+    reconcileMock.mockReset()
+    reconcileMock.mockResolvedValueOnce(
+      Array.from({ length: 10 }, (_, i) => hit({ id: `N${i}`, name: 'Sidnei Piva', match: true })),
+    )
+    reconcileMock.mockResolvedValue([])
+    const r = await runBlock4('Sidnei Piva', ICIJ_OFF, silentLogger)
+    expect(r.offshore.length).toBeLessThanOrEqual(8)
+    expect(getConnectionsMock.mock.calls.length).toBeLessThanOrEqual(8)
+  })
+
   it('conta falha da fonte ICIJ quando TODOS os datasets falham', async () => {
     reconcileMock.mockReset()
     reconcileMock.mockRejectedValue(new Error('icij down'))

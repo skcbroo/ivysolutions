@@ -28,6 +28,9 @@ export const MATCH_SCORE_THRESHOLD = 0.7
 /** Nº máximo de officers do Companies House a detalhar (limita chamadas). */
 const UK_MAX_OFFICERS = 3
 
+/** Teto de vínculos offshore a enriquecer (limita chamadas a getConnections). */
+const ICIJ_MAX_VINCULOS = 8
+
 export type Block4Logger = { info: (m: string) => void; warn: (m: string) => void }
 
 /** Hit de risco sobre a pessoa (OpenSanctions). */
@@ -94,7 +97,9 @@ function toSancao(r: OpenSanctionsResult): Sancao {
   const p = r.properties ?? {}
   return {
     entidade: r.caption,
-    score: r.score,
+    // a API pode omitir score num hit com match=true; default 0 evita
+    // TypeError em score.toFixed() no relatório (mascararia a sanção real).
+    score: typeof r.score === 'number' ? r.score : 0,
     match: r.match,
     paises: uniq([...(p.country ?? []), ...(p.nationality ?? [])]),
     programas: uniq([...(p.program ?? []), ...(p.topics ?? [])]),
@@ -179,10 +184,12 @@ async function runOffshoreLeaks(nome: string, logger?: Block4Logger): Promise<Vi
   // Itera os datasets; uma falha pontual num dataset não derruba os demais.
   // Só propaga erro se TODOS os datasets falharem (aí a fonte conta como falha).
   for (const ds of ICIJ_DATASETS) {
+    if (out.length >= ICIJ_MAX_VINCULOS) break
     try {
       const hits = await reconcile(nome, ds)
       datasetsOk++
       for (const h of hits) {
+        if (out.length >= ICIJ_MAX_VINCULOS) break
         // score do reconcile não é normalizado 0–1; confia em `match` ou na
         // contenção dos tokens do nome (mesma heurística do Companies House).
         if (!h.match && ukNameScore(nome, h.name) < 0.85) continue
