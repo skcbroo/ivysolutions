@@ -7,6 +7,7 @@ import * as investigacoesRepo from '../repos/investigacoes.js'
 import * as empresasRepo from '../repos/empresas.js'
 import * as processosRepo from '../repos/processos.js'
 import * as relatoriosRepo from '../repos/relatorios.js'
+import * as internacionalRepo from '../repos/internacional.js'
 
 const CreateInput = z.object({
   nome: z.string().trim().min(3).max(120),
@@ -79,12 +80,13 @@ export async function investigacoesRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: 'not_found' })
     }
 
-    const [empresas, processos, advogados, vinculadas, relatorio] = await Promise.all([
+    const [empresas, processos, advogados, vinculadas, relatorio, internacional] = await Promise.all([
       empresasRepo.findByInvestigacao(id),
       processosRepo.findByInvestigacao(id),
       processosRepo.findAdvogados(id),
       processosRepo.findEmpresasVinculadas(id),
       relatoriosRepo.findByInvestigacao(id),
+      internacionalRepo.listByInvestigacao(id),
     ])
 
     return {
@@ -94,6 +96,7 @@ export async function investigacoesRoutes(app: FastifyInstance) {
       processos,
       advogados,
       empresas_vinculadas: vinculadas,
+      internacional,
       relatorio_md: relatorio?.conteudo_md ?? null,
       relatorio_gerado_em: relatorio?.gerado_em ?? null,
     }

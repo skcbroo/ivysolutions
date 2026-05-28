@@ -149,6 +149,18 @@ export type Processo = {
 export type Advogado = { id: string; nome: string; oab: string | null }
 export type EmpresaVinculada = { id: string; nome: string; polo: string | null }
 
+export type Internacional = {
+  fonte: string
+  entidade: string
+  score: number | null
+  match: boolean
+  paises: string[]
+  programas: string[]
+  aliases: string[]
+  datasets: string[]
+  url: string | null
+}
+
 export type InvestigacaoFull = InvestigacaoLite & {
   uuid_cnpja: string | null
   cpf_mascarado: string | null
@@ -157,6 +169,7 @@ export type InvestigacaoFull = InvestigacaoLite & {
   processos: Processo[]
   advogados: Advogado[]
   empresas_vinculadas: EmpresaVinculada[]
+  internacional: Internacional[]
   relatorio_md: string | null
   relatorio_gerado_em: string | null
 }

@@ -1,5 +1,6 @@
 import type { Block1Result } from '../blocks/block1.js'
 import type { Block2Result } from '../blocks/block2.js'
+import type { Block4Hit } from '../blocks/block4.js'
 import { formatCpf as fmtCpf, formatCnpj } from '../utils/format.js'
 
 const formatBRL = (v: number | null | undefined) =>
@@ -27,6 +28,7 @@ export function generateReport(
   b1: Block1Result,
   b2: Block2Result,
   analisesLlm?: Map<string, string> | null,
+  hitsInternacionais?: Block4Hit[] | null,
 ): string {
   const date = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   const linhas: string[] = []
@@ -138,6 +140,22 @@ export function generateReport(
     linhas.push('## Empresas vinculadas em processos')
     for (const e of b2.empresasVinculadas) linhas.push(`- ${e.nome}${e.polo ? ` (polo ${e.polo})` : ''}`)
     linhas.push('')
+  }
+
+  if (hitsInternacionais && hitsInternacionais.length > 0) {
+    linhas.push('## Buscas internacionais')
+    linhas.push(`_Fonte: OpenSanctions — ${hitsInternacionais.length} resultado(s) acima do corte de similaridade._`)
+    linhas.push('')
+    for (const h of hitsInternacionais) {
+      const flag = h.match ? '⚠ ' : ''
+      linhas.push(`### ${flag}${esc(h.entidade)} (score ${h.score.toFixed(2)})`)
+      if (h.programas.length > 0) linhas.push(`- **Categorias/programas:** ${h.programas.join(', ')}`)
+      if (h.paises.length > 0) linhas.push(`- **Países:** ${h.paises.join(', ')}`)
+      if (h.datasets.length > 0) linhas.push(`- **Listas:** ${h.datasets.join(', ')}`)
+      if (h.aliases.length > 0) linhas.push(`- **Aliases:** ${truncMd(h.aliases.join('; '), 300)}`)
+      if (h.url) linhas.push(`- **Detalhe:** ${h.url}`)
+      linhas.push('')
+    }
   }
 
   linhas.push('## Itens para verificação manual')

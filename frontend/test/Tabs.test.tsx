@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { Tabs } from '../src/pages/osint/Relatorio'
 
-const counts = { empresas: 43, processos: 1454 }
+const counts = { empresas: 43, processos: 1454, internacional: 2 }
 
 function setup() {
   const onChange = vi.fn()
@@ -16,10 +16,10 @@ function setup() {
 }
 
 describe('<Tabs> com ARIA + keyboard nav', () => {
-  it('renderiza role=tablist com 4 tabs (Empresas, Processos, Linha do tempo, Relatório MD)', () => {
+  it('renderiza role=tablist com 5 tabs (Empresas, Processos, Internacional, Linha do tempo, Relatório MD)', () => {
     setup()
     expect(screen.getByRole('tablist')).toBeInTheDocument()
-    expect(screen.getAllByRole('tab')).toHaveLength(4)
+    expect(screen.getAllByRole('tab')).toHaveLength(5)
   })
 
   it('aria-selected reflete tab ativa', () => {
