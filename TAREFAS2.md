@@ -139,7 +139,7 @@ Para cada fonte abaixo o fluxo é: buscar pelo nome do alvo (e variações) → 
 
 #### Pesquisas de contorno (em avaliação)
 1. **Feed bulk via SFTP (caminho recomendado):** `sftp.floridados.gov` (user `Public`), arquivos **fixed-width** (registro `cor`, 1440 chars) com nome da entidade, status, datas, endereços, **registered agent** e até **6 officers**. Quarterly = snapshot completo das ativas; Daily = filings do dia. → Pipeline: cliente SFTP (`ssh2-sftp-client`) + parser fixed-width + índice por nome normalizado no Postgres. Evita Cloudflare e dá busca offline confiável. **É praticamente uma task própria.**
-2. **Browser headless + bypass Cloudflare** (Playwright stealth ou serviço) — frágil e sujeito a quebra; não recomendado.
+2. **Browser headless + bypass Cloudflare** — tentar **Puppeteer** (`puppeteer` / `puppeteer-extra` + `puppeteer-extra-plugin-stealth`) ou Playwright stealth, possivelmente com proxy residencial. Frágil e sujeito a quebra; avaliar antes de adotar.
 
 #### Entregue nesta branch (parcial)
 - [x] Lógica de inversão de nome (`DE JESUS SIDNEI`) e variações geradas no relatório.
@@ -181,7 +181,7 @@ A barreira **não é bloqueio clássico nem ordenação de nome** — é **score
 #### Pesquisas de contorno (em avaliação)
 1. **Solver de token v3** (2captcha/Anti-Captcha) que entregue tokens de score alto → resto do fluxo (`standardsearch` → `qs` → `getStandardRecords`) é HTTP limpo. Custo por solve, frágil, **zona cinzenta de ToS**.
 2. **Navegador real + IP residencial/móvel** (não datacenter) + sessão estabelecida.
-3. **Teste pendente decisivo:** rodar o fluxo **no IP do servidor de produção** (os testes acima foram em IP local) — confirma se o score muda no ambiente real. Script portátil (Playwright headless + stealth) a montar.
+3. **Teste pendente decisivo:** rodar o fluxo **no IP do servidor de produção** (os testes acima foram em IP local) — confirma se o score muda no ambiente real. Montar script portátil com **Puppeteer** (`puppeteer-extra` + `puppeteer-extra-plugin-stealth`) ou Playwright headless + stealth, e medir lá.
 
 #### Entregue nesta branch (parcial)
 - [x] Link pré-preenchido + variações de nome (`DE JESUS SIDNEI`, `JESUS SIDNEI`, …) na seção "Verificação manual" do dossiê.
