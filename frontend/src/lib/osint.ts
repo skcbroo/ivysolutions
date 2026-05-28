@@ -105,6 +105,8 @@ export type InvestigacaoLite = {
   capital_total: string | null
   pje_count: number | null
   erro_msg: string | null
+  /** Escopo escolhido — pode vir parcial/ausente em registros antigos. */
+  opcoes?: Opcoes
 }
 
 export type Empresa = {
@@ -172,6 +174,27 @@ export type EmpresaExterior = {
   score: number | null
 }
 
+export type ConexaoOffshore = {
+  id: string
+  categoria: string | null
+  nome: string
+  jurisdicao: string | null
+  endereco: string | null
+  status: string | null
+  incorporacao: string | null
+  url: string | null
+}
+
+export type VinculoOffshore = {
+  entidade: string
+  tipo: string | null
+  dataset: string
+  score: number | null
+  match: boolean
+  url: string | null
+  conexoes: ConexaoOffshore[]
+}
+
 export type InvestigacaoFull = InvestigacaoLite & {
   uuid_cnpja: string | null
   cpf_mascarado: string | null
@@ -182,7 +205,10 @@ export type InvestigacaoFull = InvestigacaoLite & {
   empresas_vinculadas: EmpresaVinculada[]
   sancoes: Sancao[]
   empresas_exterior: EmpresaExterior[]
+  offshore: VinculoOffshore[]
   falhas: Falha[]
+  /** Escopo escolhido na criação — distingue "não rodado" de "nada encontrado". */
+  opcoes: Opcoes
   relatorio_md: string | null
   relatorio_gerado_em: string | null
 }
@@ -207,7 +233,7 @@ export type AdminUser = OsintUser & {
 export type Opcoes = {
   processos: boolean
   analiseLlm: boolean
-  internacional: { opensanctions: boolean; companiesHouse: boolean }
+  internacional: { opensanctions: boolean; companiesHouse: boolean; icij: boolean }
 }
 
 export type Capabilities = {
@@ -216,6 +242,7 @@ export type Capabilities = {
   internacional: boolean
   opensanctions: boolean
   companiesHouse: boolean
+  icij: boolean
 }
 
 export const osintApi = {

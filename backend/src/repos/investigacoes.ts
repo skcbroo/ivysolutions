@@ -73,7 +73,7 @@ export async function listRecent(limit = 200, createdBy?: number) {
   if (createdBy !== undefined) {
     const { rows } = await pool.query(
       `SELECT id, created_at, updated_at, nome, cpf, status, progresso,
-              capital_total, pje_count, erro_msg
+              capital_total, pje_count, erro_msg, opcoes
          FROM investigacoes
         WHERE created_by = $1
         ORDER BY created_at DESC
@@ -84,7 +84,7 @@ export async function listRecent(limit = 200, createdBy?: number) {
   }
   const { rows } = await pool.query(
     `SELECT id, created_at, updated_at, nome, cpf, status, progresso,
-            capital_total, pje_count, erro_msg
+            capital_total, pje_count, erro_msg, opcoes
        FROM investigacoes
        ORDER BY created_at DESC
        LIMIT $1`,

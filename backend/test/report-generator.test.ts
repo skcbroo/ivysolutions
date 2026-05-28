@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { generateReport, type ReportMeta } from '../src/report/generator.js'
 import type { Block1Result } from '../src/blocks/block1.js'
 import type { Block2Result } from '../src/blocks/block2.js'
-import type { Sancao } from '../src/blocks/block4.js'
+import type { Sancao, VinculoOffshore } from '../src/blocks/block4.js'
 
 const b1Vazio: Block1Result = { uuid: null, cpfMasked: null, totalCapital: 0, empresas: [], warnings: [] }
 const b2Vazio: Block2Result = { processos: [], empresasVinculadas: [], advogados: [], count: 0 }
@@ -18,8 +18,30 @@ const sancao: Sancao = {
   url: 'https://www.opensanctions.org/entities/NK-1/',
 }
 
-const gen = (meta?: ReportMeta | null, internacional?: { sancoes: Sancao[]; empresasExterior: [] }) =>
-  generateReport('Alvo', '06256739809', b1Vazio, b2Vazio, null, internacional ?? null, meta)
+const offshore: VinculoOffshore = {
+  entidade: 'Fulano de Tal',
+  tipo: 'Officer',
+  dataset: 'panama-papers',
+  score: 80,
+  match: true,
+  url: 'https://offshoreleaks.icij.org/nodes/NK-1',
+  conexoes: [
+    {
+      id: '10147848',
+      categoria: 'Entity',
+      nome: 'SSG International Holdings Ltd.',
+      jurisdicao: 'British Virgin Islands',
+      endereco: 'Miami Beach, FL',
+      status: 'Defaulted',
+      incorporacao: '17-JUL-2012',
+      url: 'https://offshoreleaks.icij.org/nodes/10147848',
+    },
+  ],
+}
+
+type Internacional = { sancoes: Sancao[]; empresasExterior: []; offshore?: VinculoOffshore[] }
+const gen = (meta?: ReportMeta | null, internacional?: Internacional) =>
+  generateReport('Sidnei de Jesus', '06256739809', b1Vazio, b2Vazio, null, internacional ?? null, meta)
 
 describe('generateReport — estados de bloco (não executado vs. nada encontrado)', () => {
   // Regressão (bug #2): blocos pulados/falhos não podem ser renderizados como
@@ -81,5 +103,28 @@ describe('generateReport — estados de bloco (não executado vs. nada encontrad
   it('B4 no escopo, sem falha e sem resultado: "Nenhum vínculo internacional encontrado"', () => {
     const md = gen({ plano: { processos: false, internacional: true }, falhas: [] })
     expect(md).toContain('Nenhum vínculo internacional encontrado')
+  })
+
+  it('vínculos offshore (ICIJ) renderizam seção própria com dataset legível', () => {
+    const md = gen(
+      { plano: { processos: false, internacional: true }, falhas: [] },
+      { sancoes: [], empresasExterior: [], offshore: [offshore] },
+    )
+    expect(md).toContain('Vínculos offshore (ICIJ Offshore Leaks)')
+    expect(md).toContain('Panama Papers')
+    expect(md).toContain('Fulano de Tal')
+    // conexões do grafo renderizadas
+    expect(md).toContain('Conexões no grafo')
+    expect(md).toContain('SSG International Holdings Ltd.')
+    expect(md).toContain('British Virgin Islands')
+    expect(md).not.toContain('Nenhum vínculo internacional encontrado')
+  })
+
+  it('links manuais usam nome invertido (Sunbiz/Miami-Dade)', () => {
+    const md = gen()
+    // "Sidnei de Jesus" → "DE JESUS SIDNEI" (url-encoded no link do Sunbiz)
+    expect(md).toContain('DE%20JESUS%20SIDNEI')
+    expect(md).toContain('Florida Sunbiz')
+    expect(md).toContain('Miami-Dade Clerk')
   })
 })

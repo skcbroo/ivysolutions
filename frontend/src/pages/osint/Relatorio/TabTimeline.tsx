@@ -13,6 +13,7 @@ type TimelineEvent = {
     | 'socio_entrada'
     | 'empresa_situacao'
     | 'empresa_exterior'
+    | 'offshore'
     | 'processo'
     | 'comunicacao'
   title: string
@@ -36,7 +37,8 @@ export function TabTimeline({ data }: { data: InvestigacaoFull }) {
         e.type === 'empresa_abertura' ||
         e.type === 'socio_entrada' ||
         e.type === 'empresa_situacao' ||
-        e.type === 'empresa_exterior',
+        e.type === 'empresa_exterior' ||
+        e.type === 'offshore',
       )
     }
     if (filter === 'processos') {
@@ -203,7 +205,7 @@ function TimelineRow({ ev }: { ev: TimelineEvent }) {
             textUnderlineOffset: 3,
           }}
         >
-          {ev.type === 'empresa_exterior' ? 'Companies House →' : 'Abrir no tribunal →'}
+          {ev.type === 'empresa_exterior' ? 'Companies House →' : ev.type === 'offshore' ? 'ICIJ →' : 'Abrir no tribunal →'}
         </a>
       )}
     </li>
@@ -216,10 +218,14 @@ function labelFor(t: TimelineEvent['type']): string {
     case 'socio_entrada': return 'Entrada como sócio'
     case 'empresa_situacao': return 'Mudança de situação'
     case 'empresa_exterior': return 'Sociedade no exterior'
+    case 'offshore': return 'Vínculo offshore (ICIJ)'
     case 'processo': return 'Processo distribuído'
     case 'comunicacao': return 'Comunicação processual'
   }
 }
+
+const datasetLabel = (slug: string) =>
+  slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 
 function extractTimelineEvents(data: InvestigacaoFull): TimelineEvent[] {
   const out: TimelineEvent[] = []
@@ -303,6 +309,25 @@ function extractTimelineEvents(data: InvestigacaoFull): TimelineEvent[] {
           empresa: e.empresa,
         })
       }
+    }
+  }
+
+  // ── Vínculos offshore (ICIJ): constituição das entidades conectadas ──
+  for (const v of data.offshore ?? []) {
+    for (const c of v.conexoes ?? []) {
+      if (!(c.categoria ?? '').toLowerCase().includes('empresa')) continue
+      const d = isoDate(c.incorporacao)
+      if (!d) continue
+      out.push({
+        date: d,
+        year: d.slice(0, 4),
+        type: 'offshore',
+        title: `Constituição offshore: ${c.nome}${c.jurisdicao ? ` (${c.jurisdicao})` : ''}`,
+        description: [c.status, `ICIJ · ${datasetLabel(v.dataset)}`].filter(Boolean).join(' · ') || undefined,
+        tone: 'blood',
+        link: c.url,
+        empresa: c.nome,
+      })
     }
   }
 

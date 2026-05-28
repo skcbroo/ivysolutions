@@ -7,6 +7,7 @@ const tudoDisponivel: Capabilities = {
   internacional: true,
   opensanctions: true,
   companiesHouse: true,
+  icij: true,
 }
 
 const op = (over: Partial<Opcoes> = {}): Opcoes => ({
@@ -36,9 +37,24 @@ describe('resolverPlano — dependências', () => {
   })
 
   it('fontes do B4 são independentes entre si', () => {
-    const p = resolverPlano(op({ internacional: { opensanctions: false, companiesHouse: true } }), tudoDisponivel)
+    const p = resolverPlano(
+      op({ internacional: { opensanctions: false, companiesHouse: true, icij: false } }),
+      tudoDisponivel,
+    )
     expect(p.opensanctions).toBe(false)
     expect(p.companiesHouse).toBe(true)
+    expect(p.icij).toBe(false)
+    expect(p.internacional).toBe(true)
+  })
+
+  it('ICIJ sozinho mantém internacional ligado', () => {
+    const p = resolverPlano(
+      op({ internacional: { opensanctions: false, companiesHouse: false, icij: true } }),
+      tudoDisponivel,
+    )
+    expect(p.opensanctions).toBe(false)
+    expect(p.companiesHouse).toBe(false)
+    expect(p.icij).toBe(true)
     expect(p.internacional).toBe(true)
   })
 })
@@ -58,9 +74,16 @@ describe('resolverPlano — disponibilidade (capabilities)', () => {
     expect(p.opensanctions).toBe(true)
   })
 
-  it('internacional indisponível (Block 4 off) zera as duas fontes', () => {
-    const cap: Capabilities = { ...tudoDisponivel, internacional: false, opensanctions: false, companiesHouse: false }
+  it('internacional indisponível (Block 4 off) zera todas as fontes', () => {
+    const cap: Capabilities = {
+      ...tudoDisponivel,
+      internacional: false,
+      opensanctions: false,
+      companiesHouse: false,
+      icij: false,
+    }
     const p = resolverPlano(op(), cap)
     expect(p.internacional).toBe(false)
+    expect(p.icij).toBe(false)
   })
 })

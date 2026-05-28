@@ -5,9 +5,11 @@ import { StatusBadge } from '../../../components/osint/StatusBadge'
 import { useVisibleInterval } from '../../../hooks/useVisibleInterval'
 import { isAbortError, osintApi, type InvestigacaoFull } from '../../../lib/osint'
 import { DossieProtocolo } from './DossieProtocolo'
-import { formatBRL, formatDateTime } from './format'
+import { formatDateTime } from './format'
+import { unificarEmpresas } from './empresas'
 import { RunningPanel } from './RunningPanel'
 import { SancoesFlag } from './SancoesFlag'
+import { OffshoreFlag } from './OffshoreFlag'
 import { TabEmpresas } from './TabEmpresas'
 import { TabProcessos } from './TabProcessos'
 import { TabRelatorio } from './TabRelatorio'
@@ -143,7 +145,6 @@ export function Relatorio() {
 
   const isRunning = data.status === 'rodando' || data.status === 'pendente'
   const totalProcessos = data.processos.length || (data.pje_count ?? 0)
-  const criminais = data.processos.filter((p) => p.criminal).length
 
   return (
     <OsintLayout
@@ -186,6 +187,7 @@ export function Relatorio() {
         )}
 
         <SancoesFlag sancoes={data.sancoes ?? []} />
+        <OffshoreFlag offshore={data.offshore ?? []} />
 
         {data.status === 'concluido_parcial' && (data.falhas?.length ?? 0) > 0 && (
           <div
@@ -222,19 +224,14 @@ export function Relatorio() {
           </div>
         )}
 
-        <DossieProtocolo
-          empresas={data.empresas.length}
-          capital={formatBRL(data.capital_total)}
-          processos={totalProcessos}
-          criminais={criminais}
-        />
+        <DossieProtocolo data={data} />
         <hr className="ivy-rule-olive mb-10" />
 
         <Tabs
           tab={tab}
           onChange={setTab}
           counts={{
-            empresas: data.empresas.length + (data.empresas_exterior?.length ?? 0),
+            empresas: unificarEmpresas(data).length,
             processos: totalProcessos,
           }}
         />

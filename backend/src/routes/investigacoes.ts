@@ -86,7 +86,7 @@ export async function investigacoesRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: 'not_found' })
     }
 
-    const [empresas, processos, advogados, vinculadas, relatorio, sancoes, empresasExterior] =
+    const [empresas, processos, advogados, vinculadas, relatorio, sancoes, empresasExterior, offshore] =
       await Promise.all([
         empresasRepo.findByInvestigacao(id),
         processosRepo.findByInvestigacao(id),
@@ -95,6 +95,7 @@ export async function investigacoesRoutes(app: FastifyInstance) {
         relatoriosRepo.findByInvestigacao(id),
         internacionalRepo.listSancoes(id),
         internacionalRepo.listEmpresasExterior(id),
+        internacionalRepo.listOffshore(id),
       ])
 
     return {
@@ -106,6 +107,7 @@ export async function investigacoesRoutes(app: FastifyInstance) {
       empresas_vinculadas: vinculadas,
       sancoes,
       empresas_exterior: empresasExterior,
+      offshore,
       relatorio_md: relatorio?.conteudo_md ?? null,
       relatorio_gerado_em: relatorio?.gerado_em ?? null,
     }
