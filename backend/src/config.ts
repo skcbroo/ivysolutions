@@ -43,7 +43,15 @@ const Env = z.object({
   ADMIN_NOME: z.string().optional(),
 })
 
-const parsed = Env.safeParse(process.env)
+// Strings vazias (ex.: `SMTP_PORT: ${SMTP_PORT}` no compose com a var ausente
+// no .env) viram "" no container. Tratamos "" como ausente para não quebrar
+// validações .optional() (.email(), coerce number, etc).
+const rawEnv: Record<string, string | undefined> = {}
+for (const [k, v] of Object.entries(process.env)) {
+  rawEnv[k] = v === '' ? undefined : v
+}
+
+const parsed = Env.safeParse(rawEnv)
 if (!parsed.success) {
   console.error('[config] invalid environment:', parsed.error.flatten().fieldErrors)
   process.exit(1)
