@@ -3,16 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { Field } from '../../components/osint/Field'
 import { OsintLayout } from '../../components/osint/Layout'
 import { osintApi } from '../../lib/osint'
+import { formatCpf, validateCpf } from '../../utils/cpf'
 
 const onlyDigits = (s: string) => s.replace(/\D/g, '')
-
-function formatCpf(raw: string): string {
-  const d = onlyDigits(raw).slice(0, 11)
-  if (d.length <= 3) return d
-  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`
-  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`
-  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
-}
 
 export function Nova() {
   const nav = useNavigate()
@@ -29,7 +22,12 @@ export function Nova() {
         : !/^[\p{L}\s'.-]+$/u.test(nome.trim())
         ? 'Nome com caracteres inválidos.'
         : null,
-    cpf: onlyDigits(cpf).length !== 11 ? 'CPF deve ter 11 dígitos.' : null,
+    cpf:
+      onlyDigits(cpf).length !== 11
+        ? 'CPF deve ter 11 dígitos.'
+        : !validateCpf(cpf)
+        ? 'CPF inválido.'
+        : null,
   }
   const showError = (k: keyof typeof errors) => touched[k] && errors[k]
 
