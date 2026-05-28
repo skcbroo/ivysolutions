@@ -67,7 +67,7 @@ describe('<ContatoToggle>', () => {
 
 describe('<ContatoCell>', () => {
   it('view="ambos" mostra email + telefone (primeiros), com +N indicador', () => {
-    render(<ContatoCell empresa={makeEmpresa()} view="ambos" />)
+    render(<ContatoCell row={makeEmpresa()} view="ambos" />)
     expect(screen.getByText('nfe.itapemirim@itapemirim.com.br')).toBeInTheDocument()
     expect(screen.getByText('(11) 2340-1623')).toBeInTheDocument()
     // +1 telefone extra
@@ -75,19 +75,19 @@ describe('<ContatoCell>', () => {
   })
 
   it('view="email" esconde telefone', () => {
-    render(<ContatoCell empresa={makeEmpresa()} view="email" />)
+    render(<ContatoCell row={makeEmpresa()} view="email" />)
     expect(screen.getByText('nfe.itapemirim@itapemirim.com.br')).toBeInTheDocument()
     expect(screen.queryByText('(11) 2340-1623')).toBeNull()
   })
 
   it('view="telefone" esconde email', () => {
-    render(<ContatoCell empresa={makeEmpresa()} view="telefone" />)
+    render(<ContatoCell row={makeEmpresa()} view="telefone" />)
     expect(screen.getByText('(11) 2340-1623')).toBeInTheDocument()
     expect(screen.queryByText('nfe.itapemirim@itapemirim.com.br')).toBeNull()
   })
 
   it('email vira link mailto: e telefone vira tel:', () => {
-    render(<ContatoCell empresa={makeEmpresa()} view="ambos" />)
+    render(<ContatoCell row={makeEmpresa()} view="ambos" />)
     const mail = screen.getByRole('link', { name: /nfe\.itapemirim/ })
     expect(mail).toHaveAttribute('href', 'mailto:nfe.itapemirim@itapemirim.com.br')
     const tel = screen.getByRole('link', { name: /\(11\) 2340-1623/ })
@@ -96,7 +96,7 @@ describe('<ContatoCell>', () => {
 
   it('empresa sem contatos mostra "—"', () => {
     render(
-      <ContatoCell empresa={makeEmpresa({ emails: [], telefones: [] })} view="ambos" />,
+      <ContatoCell row={makeEmpresa({ emails: [], telefones: [] })} view="ambos" />,
     )
     expect(screen.getByText('—')).toBeInTheDocument()
   })

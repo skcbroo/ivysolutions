@@ -7,8 +7,8 @@ import { isAbortError, osintApi, type InvestigacaoFull } from '../../../lib/osin
 import { DossieProtocolo } from './DossieProtocolo'
 import { formatBRL, formatDateTime } from './format'
 import { RunningPanel } from './RunningPanel'
+import { SancoesFlag } from './SancoesFlag'
 import { TabEmpresas } from './TabEmpresas'
-import { TabInternacional } from './TabInternacional'
 import { TabProcessos } from './TabProcessos'
 import { TabRelatorio } from './TabRelatorio'
 import { TabTimeline } from './TabTimeline'
@@ -176,6 +176,8 @@ export function Relatorio() {
           </div>
         )}
 
+        <SancoesFlag sancoes={data.sancoes ?? []} />
+
         {data.status === 'erro' && data.erro_msg && (
           <div
             className="mb-10 p-6 border"
@@ -202,9 +204,8 @@ export function Relatorio() {
           tab={tab}
           onChange={setTab}
           counts={{
-            empresas: data.empresas.length,
+            empresas: data.empresas.length + (data.empresas_exterior?.length ?? 0),
             processos: totalProcessos,
-            internacional: data.internacional?.length ?? 0,
           }}
         />
 
@@ -216,9 +217,6 @@ export function Relatorio() {
         </TabPanel>
         <TabPanel id={panelId('processos')} labelledBy={tabId('processos')} hidden={tab !== 'processos'}>
           {tab === 'processos' && <TabProcessos data={data} />}
-        </TabPanel>
-        <TabPanel id={panelId('internacional')} labelledBy={tabId('internacional')} hidden={tab !== 'internacional'}>
-          {tab === 'internacional' && <TabInternacional data={data} />}
         </TabPanel>
         <TabPanel id={panelId('timeline')} labelledBy={tabId('timeline')} hidden={tab !== 'timeline'}>
           {tab === 'timeline' && <TabTimeline data={data} />}

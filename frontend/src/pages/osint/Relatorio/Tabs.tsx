@@ -1,11 +1,10 @@
 import { useRef, type KeyboardEvent, type ReactNode } from 'react'
 
-export type Tab = 'empresas' | 'processos' | 'internacional' | 'timeline' | 'relatorio'
+export type Tab = 'empresas' | 'processos' | 'timeline' | 'relatorio'
 
 export const TAB_ITEMS: Array<{ id: Tab; label: string }> = [
   { id: 'empresas', label: 'Empresas' },
   { id: 'processos', label: 'Processos' },
-  { id: 'internacional', label: 'Internacional' },
   { id: 'timeline', label: 'Linha do tempo' },
   { id: 'relatorio', label: 'Relatório MD' },
 ]
@@ -24,13 +23,12 @@ export function Tabs({
 }: {
   tab: Tab
   onChange: (t: Tab) => void
-  counts: { empresas: number; processos: number; internacional: number }
+  counts: { empresas: number; processos: number }
 }) {
   const tabsRef = useRef<HTMLDivElement>(null)
   const counters: Record<Tab, number | undefined> = {
     empresas: counts.empresas,
     processos: counts.processos,
-    internacional: counts.internacional,
     timeline: undefined,
     relatorio: undefined,
   }

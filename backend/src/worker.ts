@@ -2,7 +2,7 @@ export { toDate } from './utils/format.js'
 import { runBlock1 } from './blocks/block1.js'
 import { runBlock2 } from './blocks/block2.js'
 import { runBlock3 } from './blocks/block3.js'
-import { runBlock4, type Block4Hit } from './blocks/block4.js'
+import { runBlock4, type Sancao, type EmpresaExterior } from './blocks/block4.js'
 import { config } from './config.js'
 import { generateReport } from './report/generator.js'
 import * as investigacoesRepo from './repos/investigacoes.js'
@@ -147,11 +147,12 @@ async function runWorkerInner(
   }
 
   // ── BLOCO 4: Buscas internacionais (opcional, atrás de flag) ──
-  let hitsInternacionais: Block4Hit[] = []
+  let sancoes: Sancao[] = []
+  let empresasExterior: EmpresaExterior[] = []
   if (config.BLOCK4_ENABLED) {
     await investigacoesRepo.setProgresso(inv.id, {
       bloco_atual: 'block4',
-      etapa: 'Buscas internacionais (OpenSanctions)',
+      etapa: 'Buscas internacionais',
       atual: 0,
       total: 1,
       eta_ms: null,
@@ -167,17 +168,19 @@ async function runWorkerInner(
         eta_ms: null,
       })
     })
-    hitsInternacionais = b4.hits
-    if (hitsInternacionais.length > 0) {
-      await internacionalRepo.bulkInsert(inv.id, hitsInternacionais)
-    }
-    logger.info(`#${inv.id} bloco4 ok — ${hitsInternacionais.length} hit(s)`)
+    sancoes = b4.sancoes
+    empresasExterior = b4.empresasExterior
+    if (sancoes.length > 0) await internacionalRepo.insertSancoes(inv.id, sancoes)
+    if (empresasExterior.length > 0) await internacionalRepo.insertEmpresasExterior(inv.id, empresasExterior)
+    logger.info(
+      `#${inv.id} bloco4 ok — ${sancoes.length} sanção(ões), ${empresasExterior.length} sociedade(s) ext`,
+    )
   } else {
     logger.info(`#${inv.id} bloco4 pulado (BLOCK4_ENABLED=false)`)
   }
 
   // ── RELATÓRIO ──
-  const md = generateReport(inv.nome, inv.cpf, b1, b2, analises, hitsInternacionais)
+  const md = generateReport(inv.nome, inv.cpf, b1, b2, analises, { sancoes, empresasExterior })
   await relatoriosRepo.upsert(inv.id, md)
 
   await investigacoesRepo.setStatus(inv.id, 'concluido')

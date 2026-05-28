@@ -149,16 +149,27 @@ export type Processo = {
 export type Advogado = { id: string; nome: string; oab: string | null }
 export type EmpresaVinculada = { id: string; nome: string; polo: string | null }
 
-export type Internacional = {
-  fonte: string
+export type Sancao = {
   entidade: string
   score: number | null
   match: boolean
   paises: string[]
   programas: string[]
+  listas: string[]
   aliases: string[]
-  datasets: string[]
   url: string | null
+}
+
+export type EmpresaExterior = {
+  officer: string
+  empresa: string
+  numero: string | null
+  jurisdicao: string
+  cargo: string | null
+  entrada: string | null
+  saida: string | null
+  url: string | null
+  score: number | null
 }
 
 export type InvestigacaoFull = InvestigacaoLite & {
@@ -169,7 +180,8 @@ export type InvestigacaoFull = InvestigacaoLite & {
   processos: Processo[]
   advogados: Advogado[]
   empresas_vinculadas: EmpresaVinculada[]
-  internacional: Internacional[]
+  sancoes: Sancao[]
+  empresas_exterior: EmpresaExterior[]
   relatorio_md: string | null
   relatorio_gerado_em: string | null
 }

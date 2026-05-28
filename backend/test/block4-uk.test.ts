@@ -28,27 +28,34 @@ beforeEach(() => {
   matchPersonMock.mockReset()
   searchOfficersMock.mockReset()
   getAppointmentsMock.mockReset()
-  matchPersonMock.mockResolvedValue([]) // sem hits de sanção
+  matchPersonMock.mockResolvedValue([]) // sem sanções
 })
 afterEach(() => vi.clearAllMocks())
 
-describe('runBlock4 com Companies House', () => {
-  it('mapeia officer + nomeações em hit uk_companies', async () => {
+describe('runBlock4 — Companies House', () => {
+  it('mapeia cada nomeação como empresa no exterior (com datas)', async () => {
     searchOfficersMock.mockResolvedValueOnce([
       { title: 'SIDNEI PIVA DE JESUS', links: { self: '/officers/abc/appointments' } },
     ])
     getAppointmentsMock.mockResolvedValueOnce([
-      { appointed_to: { company_name: 'ACME LTD', company_number: '123' }, officer_role: 'director' },
+      {
+        appointed_to: { company_name: 'ACME LTD', company_number: '123' },
+        officer_role: 'director',
+        appointed_on: '2022-03-03',
+        resigned_on: null,
+      },
     ])
 
     const r = await runBlock4('Sidnei Piva de Jesus', silentLogger)
-    const uk = r.hits.find((h) => h.fonte === 'uk_companies')
-    expect(uk).toBeDefined()
-    expect(uk!.entidade).toBe('SIDNEI PIVA DE JESUS')
-    expect(uk!.programas).toContain('director')
-    expect(uk!.datasets).toContain('ACME LTD (123)')
-    expect(uk!.paises).toEqual(['gb'])
-    expect(uk!.url).toBe('https://find-and-update.company-information.service.gov.uk/officers/abc')
+    expect(r.empresasExterior).toHaveLength(1)
+    const e = r.empresasExterior[0]
+    expect(e.empresa).toBe('ACME LTD')
+    expect(e.numero).toBe('123')
+    expect(e.cargo).toBe('director')
+    expect(e.entrada).toBe('2022-03-03')
+    expect(e.saida).toBeNull()
+    expect(e.jurisdicao).toBe('GB')
+    expect(e.url).toBe('https://find-and-update.company-information.service.gov.uk/company/123')
   })
 
   it('descarta officers que não batem com o nome (homônimo frouxo)', async () => {
@@ -56,7 +63,7 @@ describe('runBlock4 com Companies House', () => {
       { title: 'OUTRA PESSOA QUALQUER', links: { self: '/officers/z/appointments' } },
     ])
     const r = await runBlock4('Sidnei Piva de Jesus', silentLogger)
-    expect(r.hits.filter((h) => h.fonte === 'uk_companies')).toHaveLength(0)
+    expect(r.empresasExterior).toHaveLength(0)
     expect(getAppointmentsMock).not.toHaveBeenCalled()
   })
 
@@ -64,6 +71,6 @@ describe('runBlock4 com Companies House', () => {
     searchOfficersMock.mockRejectedValueOnce(new Error('uk down'))
     const r = await runBlock4('Sidnei', silentLogger)
     expect(r.erros).toBe(1)
-    expect(r.hits).toEqual([])
+    expect(r.empresasExterior).toEqual([])
   })
 })

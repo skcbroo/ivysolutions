@@ -80,14 +80,16 @@ export async function investigacoesRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: 'not_found' })
     }
 
-    const [empresas, processos, advogados, vinculadas, relatorio, internacional] = await Promise.all([
-      empresasRepo.findByInvestigacao(id),
-      processosRepo.findByInvestigacao(id),
-      processosRepo.findAdvogados(id),
-      processosRepo.findEmpresasVinculadas(id),
-      relatoriosRepo.findByInvestigacao(id),
-      internacionalRepo.listByInvestigacao(id),
-    ])
+    const [empresas, processos, advogados, vinculadas, relatorio, sancoes, empresasExterior] =
+      await Promise.all([
+        empresasRepo.findByInvestigacao(id),
+        processosRepo.findByInvestigacao(id),
+        processosRepo.findAdvogados(id),
+        processosRepo.findEmpresasVinculadas(id),
+        relatoriosRepo.findByInvestigacao(id),
+        internacionalRepo.listSancoes(id),
+        internacionalRepo.listEmpresasExterior(id),
+      ])
 
     return {
       ...investigacao,
@@ -96,7 +98,8 @@ export async function investigacoesRoutes(app: FastifyInstance) {
       processos,
       advogados,
       empresas_vinculadas: vinculadas,
-      internacional,
+      sancoes,
+      empresas_exterior: empresasExterior,
       relatorio_md: relatorio?.conteudo_md ?? null,
       relatorio_gerado_em: relatorio?.gerado_em ?? null,
     }

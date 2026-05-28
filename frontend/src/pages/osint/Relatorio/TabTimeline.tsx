@@ -8,7 +8,13 @@ import { FilterBar, FilterChip } from './Tabs'
 type TimelineEvent = {
   date: string // 'YYYY-MM-DD' (para processos sem dia, usamos YYYY-12-31 pra ir no fim do ano)
   year: string
-  type: 'empresa_abertura' | 'socio_entrada' | 'empresa_situacao' | 'processo' | 'comunicacao'
+  type:
+    | 'empresa_abertura'
+    | 'socio_entrada'
+    | 'empresa_situacao'
+    | 'empresa_exterior'
+    | 'processo'
+    | 'comunicacao'
   title: string
   description?: string
   tone: 'olive' | 'mid' | 'blood'
@@ -27,7 +33,10 @@ export function TabTimeline({ data }: { data: InvestigacaoFull }) {
     if (filter === 'todos') return events
     if (filter === 'empresas') {
       return events.filter((e) =>
-        e.type === 'empresa_abertura' || e.type === 'socio_entrada' || e.type === 'empresa_situacao',
+        e.type === 'empresa_abertura' ||
+        e.type === 'socio_entrada' ||
+        e.type === 'empresa_situacao' ||
+        e.type === 'empresa_exterior',
       )
     }
     if (filter === 'processos') {
@@ -55,7 +64,7 @@ export function TabTimeline({ data }: { data: InvestigacaoFull }) {
     )
   }
 
-  const totEmpresas = events.filter((e) => e.type !== 'processo' && e.type !== 'comunicacao').length
+  const totEmpresas = events.filter((e) => e.type !== 'processo' && e.type !== 'comunicacao').length // inclui sociedades no exterior
   const totProcessos = events.filter((e) => e.type === 'processo' || e.type === 'comunicacao').length
   const totCriticos = events.filter((e) => e.tone === 'blood' || e.type === 'comunicacao').length
 
@@ -194,7 +203,7 @@ function TimelineRow({ ev }: { ev: TimelineEvent }) {
             textUnderlineOffset: 3,
           }}
         >
-          Abrir no tribunal →
+          {ev.type === 'empresa_exterior' ? 'Companies House →' : 'Abrir no tribunal →'}
         </a>
       )}
     </li>
@@ -206,6 +215,7 @@ function labelFor(t: TimelineEvent['type']): string {
     case 'empresa_abertura': return 'Constituição de empresa'
     case 'socio_entrada': return 'Entrada como sócio'
     case 'empresa_situacao': return 'Mudança de situação'
+    case 'empresa_exterior': return 'Sociedade no exterior'
     case 'processo': return 'Processo distribuído'
     case 'comunicacao': return 'Comunicação processual'
   }
@@ -257,6 +267,40 @@ function extractTimelineEvents(data: InvestigacaoFull): TimelineEvent[] {
           title: `${e.nome ?? formatCnpj(e.cnpj14)} → ${e.situacao}`,
           tone: 'blood',
           empresa: e.nome ?? undefined,
+        })
+      }
+    }
+  }
+
+  // ── Sociedades no exterior (Companies House) ─────────────────────────
+  for (const e of data.empresas_exterior ?? []) {
+    const empresaLabel = `${e.empresa}${e.jurisdicao ? ` (${e.jurisdicao})` : ''}`
+    if (e.entrada) {
+      const d = isoDate(e.entrada)
+      if (d) {
+        out.push({
+          date: d,
+          year: d.slice(0, 4),
+          type: 'empresa_exterior',
+          title: `Nomeado ${e.cargo ?? 'officer'} em ${empresaLabel}`,
+          description: e.numero ? `Registro ${e.numero}` : undefined,
+          tone: 'olive',
+          link: e.url,
+          empresa: e.empresa,
+        })
+      }
+    }
+    if (e.saida) {
+      const d = isoDate(e.saida)
+      if (d) {
+        out.push({
+          date: d,
+          year: d.slice(0, 4),
+          type: 'empresa_exterior',
+          title: `Saída de ${empresaLabel}`,
+          tone: 'mid',
+          link: e.url,
+          empresa: e.empresa,
         })
       }
     }
