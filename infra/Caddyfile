@@ -1,0 +1,20 @@
+{
+    # Email usado pelo Let's Encrypt para avisos sobre certificados.
+    email gbevi281@gmail.com
+}
+
+www.ivysolutions.com.br {
+    encode gzip
+
+    # Frontend nginx já faz proxy interno de /api/* pro backend
+    # via BACKEND_URL=http://backend:3002. Caddy só termina SSL.
+    reverse_proxy frontend:8080
+
+    # Headers de segurança básicos
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+}

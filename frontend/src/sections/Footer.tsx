@@ -1,6 +1,6 @@
-const PHONE_DISPLAY = '+55 61 8301-5739'
-const PHONE_TEL = '+556183015739'
-const WHATSAPP_URL = `https://wa.me/556183015739?text=${encodeURIComponent(
+const PHONE_DISPLAY = '+55 61 99591-3312'
+const PHONE_TEL = '+5561995913312'
+const WHATSAPP_URL = `https://wa.me/5561995913312?text=${encodeURIComponent(
   'Olá, gostaria de falar com a IVY sobre uma operação de recuperação.',
 )}`
 
@@ -84,7 +84,7 @@ export function Footer() {
         </nav>
       </div>
       <div
-        className="ivy-page pt-6 pb-10"
+        className="ivy-page pt-6 pb-10 flex items-baseline justify-between gap-6 flex-wrap"
         style={{
           borderTop: '1px solid oklch(0.72 0.03 80 / 0.35)',
         }}
@@ -95,6 +95,19 @@ export function Footer() {
         >
           © 2026 IVY
         </p>
+        <a
+          href="/osint"
+          className="ivy-foot ivy-footer-osint-link"
+          style={{
+            color: 'var(--color-ivy-tan)',
+            textDecoration: 'none',
+            letterSpacing: '0.25em',
+            transition: 'opacity 180ms var(--ease-ivy)',
+          }}
+          title="Acesso restrito a analistas"
+        >
+          Acesso operacional →
+        </a>
       </div>
     </footer>
   )

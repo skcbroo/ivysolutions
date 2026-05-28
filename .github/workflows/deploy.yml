@@ -1,0 +1,50 @@
+name: Deploy
+
+# Dispara só depois que o workflow "Tests" termina com sucesso, e só na main.
+on:
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
+    branches: [main]
+  # Também permite rodar manualmente pela aba Actions → Deploy → Run workflow.
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to VPS BR (Magalu)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: SSH and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          # 10 min de timeout pro build do backend e frontend.
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            cd ~/ivy
+            echo "[deploy] git pull"
+            git fetch origin main
+            git reset --hard origin/main
+            echo "[deploy] docker compose up -d --build"
+            cd infra
+            docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+            echo "[deploy] aguardando backend ficar saudável"
+            for i in $(seq 1 30); do
+              if curl -sf https://www.ivysolutions.com.br/api/health >/dev/null; then
+                echo "[deploy] backend OK na tentativa $i"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "[deploy] backend não respondeu em /api/health após 60s"
+            docker compose -f docker-compose.prod.yml logs backend --tail=50
+            exit 1

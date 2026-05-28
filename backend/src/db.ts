@@ -8,8 +8,9 @@ const { Pool } = pg
 
 export const pool = new Pool({
   connectionString: config.DATABASE_URL,
-  // Railway / managed Postgres exigem SSL em produção.
-  ssl: isProd ? { rejectUnauthorized: false } : false,
+  // SSL on em prod por padrão (Railway / managed). Em VPS com Postgres no
+  // mesmo Docker network, setar DATABASE_SSL=false desativa.
+  ssl: isProd && config.DATABASE_SSL ? { rejectUnauthorized: false } : false,
   max: 5,
 })
 
