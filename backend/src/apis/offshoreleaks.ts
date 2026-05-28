@@ -1,4 +1,5 @@
 import { httpJson } from './http.js'
+import { categoriaPt, statusPt, jurisdicaoPt, dataPt } from './icij-i18n.js'
 
 /**
  * Cliente do ICIJ Offshore Leaks Database via Reconciliation API (JSON, pública,
@@ -165,12 +166,12 @@ export async function getConnections(id: string): Promise<IcijConnection[]> {
       const nid = n.id != null ? String(n.id) : ''
       return {
         id: nid,
-        categoria: cats[0] ?? null,
+        categoria: categoriaPt(cats[0] ?? null),
         nome: p.name ?? p.address ?? '',
-        jurisdicao: p.jurisdiction_description ?? p.jurisdiction ?? null,
+        jurisdicao: jurisdicaoPt(p.jurisdiction_description ?? p.jurisdiction ?? null),
         endereco: p.address ?? null,
-        status: p.status ?? null,
-        incorporacao: p.incorporation_date ?? null,
+        status: statusPt(p.status ?? null),
+        incorporacao: dataPt(p.incorporation_date ?? null),
         url: nid ? nodeUrl(nid) : null,
       }
     })

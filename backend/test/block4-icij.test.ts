@@ -48,7 +48,7 @@ describe('runBlock4 — ICIJ Offshore Leaks', () => {
     expect(r.offshore).toHaveLength(1)
     expect(r.offshore[0]).toMatchObject({
       entidade: 'Sidnei Piva',
-      tipo: 'Officer',
+      tipo: 'Pessoa (officer)', // normalizado PT-BR
       dataset: 'panama-papers',
       match: true,
       url: 'https://offshoreleaks.icij.org/nodes/NK-1',

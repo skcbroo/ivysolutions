@@ -14,6 +14,7 @@ import {
   OffshoreLeaksError,
   type IcijConnection,
 } from '../apis/offshoreleaks.js'
+import { categoriaPt } from '../apis/icij-i18n.js'
 
 /**
  * Block 4: buscas internacionais. Produz dados ESTRUTURADOS para serem
@@ -194,7 +195,7 @@ async function runOffshoreLeaks(nome: string, logger?: Block4Logger): Promise<Vi
         }
         out.push({
           entidade: h.name,
-          tipo: h.types[0] ?? null,
+          tipo: categoriaPt(h.types[0] ?? null),
           dataset: ds,
           score: h.score,
           match: h.match,

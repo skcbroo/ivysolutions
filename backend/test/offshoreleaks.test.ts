@@ -95,16 +95,17 @@ describe('offshoreleaks.reconcile', () => {
     })
     const c = await getConnections('12103204')
     expect(c).toHaveLength(2)
+    // valores normalizados para PT-BR na ingestão
     expect(c[0]).toMatchObject({
       id: '10147848',
-      categoria: 'Entity',
+      categoria: 'Empresa offshore',
       nome: 'SSG International Holdings Ltd.',
-      jurisdicao: 'British Virgin Islands',
-      incorporacao: '17-JUL-2012',
-      status: 'Defaulted',
+      jurisdicao: 'Ilhas Virgens Britânicas',
+      incorporacao: '17/07/2012',
+      status: 'Inadimplente',
       url: 'https://offshoreleaks.icij.org/nodes/10147848',
     })
-    expect(c[1]).toMatchObject({ categoria: 'Address', nome: '2000 Ponce De Leon Blvd, Coral Gables, FL' })
+    expect(c[1]).toMatchObject({ categoria: 'Endereço', nome: '2000 Ponce De Leon Blvd, Coral Gables, FL' })
   })
 
   it('getConnections devolve [] em erro (best-effort)', async () => {
