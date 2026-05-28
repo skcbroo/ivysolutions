@@ -10,7 +10,7 @@ const onlyDigits = (s: string) => s.replace(/\D/g, '')
 const OPCOES_PADRAO: Opcoes = {
   processos: true,
   analiseLlm: true,
-  internacional: { opensanctions: true, companiesHouse: true },
+  internacional: { opensanctions: true, companiesHouse: true, icij: true },
 }
 
 export function Nova() {
@@ -213,7 +213,7 @@ function EscopoSection({
             </Section>
           )}
 
-          {caps?.internacional && (caps.opensanctions || caps.companiesHouse) && (
+          {caps?.internacional && (caps.opensanctions || caps.companiesHouse || caps.icij) && (
             <Section title="Buscas internacionais (Bloco 4)" bordered>
               {caps.opensanctions && (
                 <Toggle
@@ -232,6 +232,16 @@ function EscopoSection({
                   checked={opcoes.internacional.companiesHouse}
                   onChange={(v) =>
                     setOpcoes((o) => ({ ...o, internacional: { ...o.internacional, companiesHouse: v } }))
+                  }
+                />
+              )}
+              {caps.icij && (
+                <Toggle
+                  label="ICIJ Offshore Leaks"
+                  hint="Vínculos do alvo em vazamentos offshore (Panama, Pandora, Paradise Papers etc.)."
+                  checked={opcoes.internacional.icij}
+                  onChange={(v) =>
+                    setOpcoes((o) => ({ ...o, internacional: { ...o.internacional, icij: v } }))
                   }
                 />
               )}

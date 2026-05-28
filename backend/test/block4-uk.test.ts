@@ -43,7 +43,7 @@ describe('runBlock4 — Companies House', () => {
       },
     ])
 
-    const r = await runBlock4('Sidnei Piva de Jesus', { opensanctions: true, companiesHouse: true }, silentLogger)
+    const r = await runBlock4('Sidnei Piva de Jesus', { opensanctions: true, companiesHouse: true, icij: false }, silentLogger)
     expect(r.empresasExterior).toHaveLength(1)
     const e = r.empresasExterior[0]
     expect(e.empresa).toBe('ACME LTD')
@@ -59,14 +59,14 @@ describe('runBlock4 — Companies House', () => {
     searchOfficersMock.mockResolvedValueOnce([
       { title: 'OUTRA PESSOA QUALQUER', links: { self: '/officers/z/appointments' } },
     ])
-    const r = await runBlock4('Sidnei Piva de Jesus', { opensanctions: true, companiesHouse: true }, silentLogger)
+    const r = await runBlock4('Sidnei Piva de Jesus', { opensanctions: true, companiesHouse: true, icij: false }, silentLogger)
     expect(r.empresasExterior).toHaveLength(0)
     expect(getAppointmentsMock).not.toHaveBeenCalled()
   })
 
   it('uma fonte falhando não derruba a outra', async () => {
     searchOfficersMock.mockRejectedValueOnce(new Error('uk down'))
-    const r = await runBlock4('Sidnei', { opensanctions: true, companiesHouse: true }, silentLogger)
+    const r = await runBlock4('Sidnei', { opensanctions: true, companiesHouse: true, icij: false }, silentLogger)
     expect(r.erros).toBe(1)
     expect(r.empresasExterior).toEqual([])
     expect(r.fontesFalhas).toEqual([{ fonte: 'Companies House', msg: expect.stringContaining('uk down') }])
@@ -89,7 +89,7 @@ describe('runBlock4 — Companies House', () => {
       },
     ])
     searchOfficersMock.mockRejectedValueOnce(new Error('uk down'))
-    const r = await runBlock4('Sidnei', { opensanctions: true, companiesHouse: true }, silentLogger)
+    const r = await runBlock4('Sidnei', { opensanctions: true, companiesHouse: true, icij: false }, silentLogger)
     expect(r.sancoes.length).toBeGreaterThan(0)
     expect(r.empresasExterior).toEqual([])
     expect(r.erros).toBe(1)

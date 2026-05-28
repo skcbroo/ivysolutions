@@ -49,9 +49,11 @@ Casos inválidos a rejeitar além do cálculo: sequências repetidas (`000.000.0
 
 ---
 
-## 3 — Busca reversa por email e endereço na base nacional (Block 1.5)
+## 3 — Busca reversa por email e endereço na base nacional (Block 1.5) — ⏳ PENDENTE
 
 > ⚠ **Em avaliação — implementar por último.** Viabilidade depende de validação local da base de CNPJs da Receita Federal antes de qualquer implementação.
+>
+> **Status (2026-05-28):** os arquivos CSV da Receita estão disponíveis localmente (confirmado pelo usuário). Falta definir a estratégia de ingestão (importar p/ Postgres + índices em email normalizado e chave de endereço, vs. consultar CSVs direto — para cruzamento por email/endereço, importar e indexar é o único caminho que escala). A implementação começa depois de definir caminho dos arquivos, layouts disponíveis (Empresas / Estabelecimentos — que traz email+endereço / Sócios) e tamanho da base.
 
 A ideia: após o Block 1, usar os emails e endereços coletados das empresas do alvo para fazer uma busca reversa na base completa de CNPJs — revelando empresas correlatas que não aparecem no QSA, inclusive estrangeiras com CNPJ BR que compartilham o mesmo email de contato.
 
@@ -100,9 +102,9 @@ Para cada fonte abaixo o fluxo é: buscar pelo nome do alvo (e variações) → 
 - Investigar se existe API oficial (Companies House tem API REST, vale checar se cobre a busca por nome de pessoa)
 
 **Checklist**
-- [ ] Estudar a API oficial do Companies House (`api.company-information.service.gov.uk`) — pode evitar scraping
-- [ ] Se scraping necessário: criar `backend/src/apis/ukcompanies.ts` com parser HTML (cheerio ou similar)
-- [ ] Mapear o fluxo de dois passos: search → officer page → appointments
+- [x] Estudar a API oficial do Companies House — usada (evita scraping)
+- [x] `backend/src/apis/ukcompanies.ts` criado
+- [x] Fluxo de dois passos mapeado: search → officer page → appointments
 
 ---
 
@@ -115,41 +117,71 @@ Para cada fonte abaixo o fluxo é: buscar pelo nome do alvo (e variações) → 
 - Verificar se há match; se sim, extrair: entidade, jurisdição, dataset de origem, intermediários
 
 **Checklist**
-- [ ] Criar `backend/src/apis/offshoreleaks.ts` com parser HTML
-- [ ] Testar variações de nome (com e sem aspas, nome parcial) para calibrar falsos positivos
-- [ ] Extrair links para entidades relacionadas se houver match
+- [x] Criar `backend/src/apis/offshoreleaks.ts` — usa a **Reconciliation API JSON oficial** (`POST /api/v1/reconcile/{dataset}`, sem chave), não scraping
+- [x] Integrado ao Block 4 como 3ª fonte (`runOffshoreLeaks`): itera os 5 datasets, filtra por `match`/contenção de tokens do nome
+- [x] Persistência (`investigacao_offshore`, migration `014`), exibição no dossiê (relatório + `OffshoreFlag`), toggle no form
+- [x] Testes: cliente (`offshoreleaks.test.ts`) + integração no Block 4 (`block4-icij.test.ts`)
 
 ---
 
-### 4.4 — Florida Sunbiz (Secretary of State)
+### 4.4 — Florida Sunbiz (Secretary of State) — ⏳ PENDENTE (parcial: link manual entregue)
 **Tipo:** HTML scraping, formato de nome invertido.
 
 - Endpoint: `https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResults/OfficerRegisteredAgentName/{SOBRENOME}%20{NOME}/Page1`
-- **Atenção:** nome deve ser invertido (`DE JESUS SIDNEI`, não `SIDNEI DE JESUS`) — avaliar como montar automaticamente para nomes compostos
-- Retorna lista de empresas registradas na Flórida onde o alvo é officer ou registered agent
-- Se match: navegar até a página da empresa e verificar possibilidade de baixar o relatório anual (Annual Report)
+- **Atenção:** nome deve ser invertido (`DE JESUS SIDNEI`, não `SIDNEI DE JESUS`).
+- Retorna lista de empresas registradas na Flórida onde o alvo é officer ou registered agent.
 
-**Checklist**
-- [ ] Criar `backend/src/apis/sunbiz.ts` com lógica de inversão de nome e parser HTML
-- [ ] Mapear variações possíveis do nome invertido (ex: `DE JESUS SIDNEI P`, `PIVA SIDNEI`)
-- [ ] Extrair dados da empresa: status, data de registro, endereço registrado, outros officers
-- [ ] Se relatório anual disponível: baixar e armazenar como anexo no dossiê
+#### Testes realizados (2026-05-28)
+- `curl` direto no endpoint de SearchResults → **HTTP 403** com **Cloudflare managed challenge** (resposta com `cType: 'managed'` + challenge JS `/cdn-cgi/challenge-platform/.../orchestrate`, exige "Enable JavaScript and cookies").
+- User-Agent de navegador + headers completos **não passam** — o gate é por JS/cookies/JA3 fingerprint.
+- **Conclusão:** scraping ao vivo com `undici`+`cheerio` é **inviável**.
+
+#### Pesquisas de contorno (em avaliação)
+1. **Feed bulk via SFTP (caminho recomendado):** `sftp.floridados.gov` (user `Public`), arquivos **fixed-width** (registro `cor`, 1440 chars) com nome da entidade, status, datas, endereços, **registered agent** e até **6 officers**. Quarterly = snapshot completo das ativas; Daily = filings do dia. → Pipeline: cliente SFTP (`ssh2-sftp-client`) + parser fixed-width + índice por nome normalizado no Postgres. Evita Cloudflare e dá busca offline confiável. **É praticamente uma task própria.**
+2. **Browser headless + bypass Cloudflare** (Playwright stealth ou serviço) — frágil e sujeito a quebra; não recomendado.
+
+#### Entregue nesta branch (parcial)
+- [x] Lógica de inversão de nome (`DE JESUS SIDNEI`) e variações geradas no relatório.
+- [x] Link de busca por officer/registered agent pré-preenchido na seção "Verificação manual" do dossiê.
+- [ ] **PENDENTE:** pipeline SFTP bulk (item 1 acima) — automação real.
 
 ---
 
-### 4.5 — Miami-Dade Clerk — Official Records
-**Tipo:** HTML scraping complexo, múltiplas variações de nome.
+### 4.5 — Miami-Dade Clerk — Official Records — ⏳ PENDENTE (parcial: link manual entregue)
+**Tipo:** SPA + reCAPTCHA v3.
 
-- Portal: `https://onlineservices.miamidadeclerk.gov/officialrecords`
-- Busca por "Party Name" — campo de texto livre
-- Variações a testar: `DE JESUS SIDNEI`, `PIVA SIDNEI`, `DE JESUS SIDNEI P`, nome completo
-- Retorna registros de cartório: procurações, compra/venda de imóvel, LIS PENDENS, hipotecas, etc.
-- Cada registro tem: Party Name, Address, Document Type, Rec Date, Rec Book/Page, Legal Description, Clerk's File Number
-- Múltiplos matches possíveis para o mesmo alvo com variações do nome
+- Portal: `https://onlineservices.miamidadeclerk.gov/officialrecords` (SPA React).
+- Busca por "Party Name" (formato last-name-first: `DE JESUS SIDNEI PIVA`).
+- Registros: Party Name, Address, Document Type, Rec Date, Book/Page, Legal Description, Clerk's File Number (CFN). Doc types críticos: LIS PENDENS, foreclosure, deed, mortgage.
 
-**Checklist**
-- [ ] Investigar o portal: verificar se aceita requisições diretas ou usa captcha/session
-- [ ] Criar `backend/src/apis/miamidade.ts` com lógica de busca por múltiplas variações do nome
-- [ ] Parsear a tabela de resultados: extrair tipo de documento, data, book/page, descrição legal
-- [ ] Consolidar matches duplicados (mesmo registro aparecendo por nomes diferentes)
-- [ ] Exibir no dossiê com destaque para documentos críticos (LIS PENDENS, foreclosure, deed)
+#### Arquitetura descoberta (2026-05-28)
+Dois endpoints distintos:
+| Endpoint | Função | Captcha |
+|---|---|---|
+| `POST /officialrecords/api/home/standardsearch?partyName=…` | **gera** um `qs` (token de busca) | exige header `x-recaptcha-token` (**reCAPTCHA v3**, site key `6LfI8ikaAAAAAH0qlQMApskMGd1U6EqDyniH5t0x`) |
+| `GET /officialrecords/api/SearchResults/getStandardRecords?qs=…` | **lê** os resultados de um `qs` | nenhum |
+
+O `qs` é **criptografado no servidor**, embute os critérios e é descartável (um por busca). A API oficial de developers (`www2.miamidadeclerk.gov`) é **paga** e busca só por CFN/Book-Page/Folio — **não por nome**.
+
+#### Testes realizados (todos ao vivo)
+| Cenário | Resultado |
+|---|---|
+| `curl` no `getStandardRecords` com `qs` válido (gerado por humano) | **HTTP 200 + JSON** com 1 registro real do alvo (ST TROPEZ II LLC) |
+| `curl` no `standardsearch` **sem** token (ou token falso/Origin realista) | `{"isValidSearch":false,"qs":null}` — recusa gerar `qs` |
+| Playwright (Chrome real) gerando token v3 + `standardsearch` | `isValidSearch:true` + `qs` novo — **o captcha passa mecanicamente** |
+| Ler resultados com o `qs` gerado pela automação | **0 resultados** |
+| Mesma string, mesma sessão/IP: `qs` do humano vs `qs` da automação | humano → **1**, automação → **0** |
+| Playwright + stealth (`navigator.webdriver` mascarado) | ainda **0** |
+| Playwright com profile real logado no Google (cópia) | sessão não carregou; direto no profile real → travou em about:blank (inviável) |
+
+#### Conclusão
+A barreira **não é bloqueio clássico nem ordenação de nome** — é **score-gating do reCAPTCHA v3**: o backend "assa" a nota do v3 dentro do `qs`; tráfego automatizado/datacenter recebe nota baixa e o `qs` retorna **lista vazia** (anti-scraping silencioso). Humano em navegador real (com sessão Google) tira nota alta → recebe os dados. Mascarar o fingerprint não basta.
+
+#### Pesquisas de contorno (em avaliação)
+1. **Solver de token v3** (2captcha/Anti-Captcha) que entregue tokens de score alto → resto do fluxo (`standardsearch` → `qs` → `getStandardRecords`) é HTTP limpo. Custo por solve, frágil, **zona cinzenta de ToS**.
+2. **Navegador real + IP residencial/móvel** (não datacenter) + sessão estabelecida.
+3. **Teste pendente decisivo:** rodar o fluxo **no IP do servidor de produção** (os testes acima foram em IP local) — confirma se o score muda no ambiente real. Script portátil (Playwright headless + stealth) a montar.
+
+#### Entregue nesta branch (parcial)
+- [x] Link pré-preenchido + variações de nome (`DE JESUS SIDNEI`, `JESUS SIDNEI`, …) na seção "Verificação manual" do dossiê.
+- [ ] **PENDENTE:** automação (depende de uma das opções de contorno acima + teste no IP do servidor).

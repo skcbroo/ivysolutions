@@ -8,6 +8,7 @@ import { DossieProtocolo } from './DossieProtocolo'
 import { formatBRL, formatDateTime } from './format'
 import { RunningPanel } from './RunningPanel'
 import { SancoesFlag } from './SancoesFlag'
+import { OffshoreFlag } from './OffshoreFlag'
 import { TabEmpresas } from './TabEmpresas'
 import { TabProcessos } from './TabProcessos'
 import { TabRelatorio } from './TabRelatorio'
@@ -186,6 +187,7 @@ export function Relatorio() {
         )}
 
         <SancoesFlag sancoes={data.sancoes ?? []} />
+        <OffshoreFlag offshore={data.offshore ?? []} />
 
         {data.status === 'concluido_parcial' && (data.falhas?.length ?? 0) > 0 && (
           <div

@@ -12,13 +12,13 @@ import { config } from './config.js'
 export type Opcoes = {
   processos: boolean
   analiseLlm: boolean
-  internacional: { opensanctions: boolean; companiesHouse: boolean }
+  internacional: { opensanctions: boolean; companiesHouse: boolean; icij: boolean }
 }
 
 export const DEFAULT_OPCOES: Opcoes = {
   processos: true,
   analiseLlm: true,
-  internacional: { opensanctions: true, companiesHouse: true },
+  internacional: { opensanctions: true, companiesHouse: true, icij: true },
 }
 
 /** Schema tolerante: campos ausentes assumem o default (tudo ligado). */
@@ -30,8 +30,9 @@ export const OpcoesSchema = z
       .object({
         opensanctions: z.boolean().default(true),
         companiesHouse: z.boolean().default(true),
+        icij: z.boolean().default(true),
       })
-      .default({ opensanctions: true, companiesHouse: true }),
+      .default({ opensanctions: true, companiesHouse: true, icij: true }),
   })
   .default(DEFAULT_OPCOES)
 
@@ -42,6 +43,7 @@ export type Capabilities = {
   internacional: boolean
   opensanctions: boolean
   companiesHouse: boolean
+  icij: boolean
 }
 
 export function capabilities(): Capabilities {
@@ -51,6 +53,8 @@ export function capabilities(): Capabilities {
     internacional: config.BLOCK4_ENABLED,
     opensanctions: config.BLOCK4_ENABLED,
     companiesHouse: config.BLOCK4_ENABLED && !!config.UK_COMPANIES_API_KEY,
+    // ICIJ usa API pública sem chave — basta o Block 4 estar habilitado.
+    icij: config.BLOCK4_ENABLED,
   }
 }
 
@@ -60,6 +64,7 @@ export type PlanoExecucao = {
   analiseLlm: boolean
   opensanctions: boolean
   companiesHouse: boolean
+  icij: boolean
   internacional: boolean
 }
 
@@ -69,11 +74,13 @@ export function resolverPlano(op: Opcoes, cap: Capabilities = capabilities()): P
   const analiseLlm = op.analiseLlm && cap.analiseLlm && processos
   const opensanctions = op.internacional.opensanctions && cap.opensanctions
   const companiesHouse = op.internacional.companiesHouse && cap.companiesHouse
+  const icij = op.internacional.icij && cap.icij
   return {
     processos,
     analiseLlm,
     opensanctions,
     companiesHouse,
-    internacional: opensanctions || companiesHouse,
+    icij,
+    internacional: opensanctions || companiesHouse || icij,
   }
 }

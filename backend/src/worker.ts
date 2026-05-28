@@ -2,7 +2,7 @@ export { toDate } from './utils/format.js'
 import { runBlock1, type Block1Result } from './blocks/block1.js'
 import { runBlock2, type Block2Result } from './blocks/block2.js'
 import { runBlock3 } from './blocks/block3.js'
-import { runBlock4, type Sancao, type EmpresaExterior } from './blocks/block4.js'
+import { runBlock4, type Sancao, type EmpresaExterior, type VinculoOffshore } from './blocks/block4.js'
 import { generateReport } from './report/generator.js'
 import { OpcoesSchema, resolverPlano } from './opcoes.js'
 import * as investigacoesRepo from './repos/investigacoes.js'
@@ -67,7 +67,11 @@ async function runWorkerInner(
   // cadeia B1→B2→B3. Não tem progresso granular; é rápido e fica "escondido"
   // atrás da cadeia.
   const b4Promise = plano.internacional
-    ? runBlock4(inv.nome, { opensanctions: plano.opensanctions, companiesHouse: plano.companiesHouse }, logger)
+    ? runBlock4(
+        inv.nome,
+        { opensanctions: plano.opensanctions, companiesHouse: plano.companiesHouse, icij: plano.icij },
+        logger,
+      )
     : Promise.resolve(null)
 
   // ── BLOCO 1: Empresas (base — sempre roda) ──
@@ -158,6 +162,7 @@ async function runWorkerInner(
   // ── Aguarda o BLOCO 4 (já estava rodando em paralelo) ──
   let sancoes: Sancao[] = []
   let empresasExterior: EmpresaExterior[] = []
+  let offshore: VinculoOffshore[] = []
   if (plano.internacional) {
     await investigacoesRepo.setProgresso(inv.id, {
       bloco_atual: 'block4', etapa: 'Buscas internacionais', atual: 0, total: 1, eta_ms: null,
@@ -167,8 +172,10 @@ async function runWorkerInner(
       if (b4) {
         sancoes = b4.sancoes
         empresasExterior = b4.empresasExterior
+        offshore = b4.offshore
         if (sancoes.length > 0) await internacionalRepo.insertSancoes(inv.id, sancoes)
         if (empresasExterior.length > 0) await internacionalRepo.insertEmpresasExterior(inv.id, empresasExterior)
+        if (offshore.length > 0) await internacionalRepo.insertOffshore(inv.id, offshore)
         // Registra falha sempre que QUALQUER fonte solicitada falhar — mesmo que
         // a outra tenha retornado dados. Caso contrário, uma fonte caída fica
         // invisível e a investigação seria finalizada como 'concluido'.
@@ -190,12 +197,12 @@ async function runWorkerInner(
   // ── RELATÓRIO (sempre gera com o que conseguiu) ──
   // Passa plano + falhas para o gerador distinguir "não executado" de
   // "nada encontrado" em blocos pulados/falhos.
-  const md = generateReport(inv.nome, inv.cpf, b1 ?? EMPTY_B1, b2 ?? EMPTY_B2, analises, { sancoes, empresasExterior }, { plano, falhas })
+  const md = generateReport(inv.nome, inv.cpf, b1 ?? EMPTY_B1, b2 ?? EMPTY_B2, analises, { sancoes, empresasExterior, offshore }, { plano, falhas })
   await relatoriosRepo.upsert(inv.id, md)
 
   // ── STATUS FINAL ──
   // erro: nada produzido. parcial: algo falhou mas houve resultado. concluido: tudo ok.
-  const algumSucesso = b1 !== null || sancoes.length > 0 || empresasExterior.length > 0
+  const algumSucesso = b1 !== null || sancoes.length > 0 || empresasExterior.length > 0 || offshore.length > 0
   const status = falhas.length === 0 ? 'concluido' : algumSucesso ? 'concluido_parcial' : 'erro'
   await investigacoesRepo.finalizeExecucao(inv.id, status, falhas)
   logger.info(`#${inv.id} ${status}${falhas.length ? ` (falhas: ${falhas.map((f) => f.bloco).join(', ')})` : ''}`)
