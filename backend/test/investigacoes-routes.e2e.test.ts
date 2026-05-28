@@ -165,7 +165,7 @@ describe('GET /api/investigacoes/:id/status', () => {
     expect(res.statusCode).toBe(200)
     const body = res.json() as Record<string, unknown>
     expect(Object.keys(body).sort()).toEqual(
-      ['capital_total', 'erro_msg', 'pje_count', 'progresso', 'status'].sort(),
+      ['capital_total', 'erro_msg', 'falhas', 'pje_count', 'progresso', 'status'].sort(),
     )
   })
 })

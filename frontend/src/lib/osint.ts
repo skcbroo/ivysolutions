@@ -94,7 +94,7 @@ export type InvestigacaoLite = {
   updated_at: string
   nome: string
   cpf: string
-  status: 'pendente' | 'rodando' | 'concluido' | 'erro'
+  status: 'pendente' | 'rodando' | 'concluido' | 'concluido_parcial' | 'erro'
   progresso: {
     bloco_atual?: string
     etapa?: string
@@ -105,6 +105,8 @@ export type InvestigacaoLite = {
   capital_total: string | null
   pje_count: number | null
   erro_msg: string | null
+  /** Escopo escolhido — pode vir parcial/ausente em registros antigos. */
+  opcoes?: Opcoes
 }
 
 export type Empresa = {
@@ -149,6 +151,50 @@ export type Processo = {
 export type Advogado = { id: string; nome: string; oab: string | null }
 export type EmpresaVinculada = { id: string; nome: string; polo: string | null }
 
+export type Sancao = {
+  entidade: string
+  score: number | null
+  match: boolean
+  paises: string[]
+  programas: string[]
+  listas: string[]
+  aliases: string[]
+  url: string | null
+}
+
+export type EmpresaExterior = {
+  officer: string
+  empresa: string
+  numero: string | null
+  jurisdicao: string
+  cargo: string | null
+  entrada: string | null
+  saida: string | null
+  url: string | null
+  score: number | null
+}
+
+export type ConexaoOffshore = {
+  id: string
+  categoria: string | null
+  nome: string
+  jurisdicao: string | null
+  endereco: string | null
+  status: string | null
+  incorporacao: string | null
+  url: string | null
+}
+
+export type VinculoOffshore = {
+  entidade: string
+  tipo: string | null
+  dataset: string
+  score: number | null
+  match: boolean
+  url: string | null
+  conexoes: ConexaoOffshore[]
+}
+
 export type InvestigacaoFull = InvestigacaoLite & {
   uuid_cnpja: string | null
   cpf_mascarado: string | null
@@ -157,9 +203,17 @@ export type InvestigacaoFull = InvestigacaoLite & {
   processos: Processo[]
   advogados: Advogado[]
   empresas_vinculadas: EmpresaVinculada[]
+  sancoes: Sancao[]
+  empresas_exterior: EmpresaExterior[]
+  offshore: VinculoOffshore[]
+  falhas: Falha[]
+  /** Escopo escolhido na criação — distingue "não rodado" de "nada encontrado". */
+  opcoes: Opcoes
   relatorio_md: string | null
   relatorio_gerado_em: string | null
 }
+
+export type Falha = { bloco: string; msg: string }
 
 export type StatusResponse = {
   status: InvestigacaoLite['status']
@@ -167,12 +221,28 @@ export type StatusResponse = {
   capital_total: string | null
   pje_count: number | null
   erro_msg: string | null
+  falhas?: Falha[]
 }
 
 export type AdminUser = OsintUser & {
   active: boolean
   must_change_password: boolean
   created_at: string
+}
+
+export type Opcoes = {
+  processos: boolean
+  analiseLlm: boolean
+  internacional: { opensanctions: boolean; companiesHouse: boolean; icij: boolean }
+}
+
+export type Capabilities = {
+  processos: boolean
+  analiseLlm: boolean
+  internacional: boolean
+  opensanctions: boolean
+  companiesHouse: boolean
+  icij: boolean
 }
 
 export const osintApi = {
@@ -215,10 +285,13 @@ export const osintApi = {
       method: 'POST',
     }),
 
-  criarInvestigacao: (nome: string, cpf: string) =>
+  capabilities: (signal?: AbortSignal) =>
+    request<Capabilities>('/api/investigacoes/capabilities', { signal }),
+
+  criarInvestigacao: (nome: string, cpf: string, opcoes?: Opcoes) =>
     request<InvestigacaoLite>('/api/investigacoes', {
       method: 'POST',
-      body: JSON.stringify({ nome, cpf }),
+      body: JSON.stringify({ nome, cpf, opcoes }),
     }),
 
   listar: (signal?: AbortSignal) =>

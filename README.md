@@ -8,7 +8,11 @@ Site institucional + plataforma interna de inteligência patrimonial (OSINT) da 
 │  /sobre       Sobre a IVY                               │
 │  /osint/*     Plataforma interna de analistas (JWT)     │
 │               · Dossiês patrimoniais                    │
-│               · Busca em fontes públicas (CNPJa, CNJ)   │
+│               · Busca em fontes públicas (CNPJ.ws, CNJ) │
+│               · Análise patrimonial via IA (Block 3)    │
+│               · Buscas internacionais (Block 4:         │
+│                 OpenSanctions, UK Companies House, ICIJ)│
+│               · Escopo configurável por investigação    │
 │               · Gestão de usuários (admin)              │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -24,7 +28,7 @@ Site institucional + plataforma interna de inteligência patrimonial (OSINT) da 
 | **Testes** | Vitest · Testing Library · happy-dom · axe-core · undici MockAgent |
 | **Deploy** | Railway (Docker multi-stage; nginx + Fastify) |
 
-160 testes passando (97 backend, 63 frontend) — ver [CI](.github/workflows/test.yml).
+Suíte ampla cobrindo backend (unit, E2E com Postgres, integração com APIs mockadas, worker) e frontend (componentes, hooks, dedup de empresas, validação de CPF, a11y) — ver [CI](.github/workflows/test.yml).
 
 ## Setup local
 
@@ -98,6 +102,10 @@ Ver [`backend/.env.example`](backend/.env.example) — todas validadas por Zod n
 | `ADMIN_NOME` | não | Nome do admin no bootstrap. Default "Administrador" |
 | `PORT` | não | Default 3001 |
 | `CORS_ORIGIN` | não | Origin(s) permitidos no CORS, separados por vírgula |
+| `BLOCK3_ENABLED` + `ANTHROPIC_API_KEY` | não | Liga a análise patrimonial via Claude (Block 3). `CLAUDE_MODEL` default `claude-haiku-4-5` |
+| `BLOCK4_ENABLED` | não | Liga as buscas internacionais (Block 4). **Default off** |
+| `UK_COMPANIES_API_KEY` | não | **Obrigatória** para a fonte UK Companies House (sem ela, fica desligada) |
+| `OPENSANCTIONS_API_KEY` | não | Opcional — OpenSanctions roda sem chave (rate limit pior); ICIJ não usa chave |
 | SMTP (`SMTP_*`, `LEAD_*`) | não | Notificação de leads. Sem SMTP, leads são apenas logados |
 
 ## Arquitetura
@@ -115,10 +123,15 @@ Ver [`backend/.env.example`](backend/.env.example) — todas validadas por Zod n
 │  │  POST /api/investigacoes dispara runWorker(id) async      │   │
 │  └───────────────────────────────────────────────────────────┘   │
 │  ┌─ Worker assíncrono (mesmo processo) ──────────────────────┐   │
-│  │  Block1: CPF → BFF CNPJa → BrasilAPI + CNPJa Open         │   │
-│  │  Block2: DJEN/Comunica + scraping fallback                │   │
-│  │  Report: gera markdown completo                           │   │
+│  │  Block1: CPF/nome → BFF CNPJa → CNPJ.ws (+fallbacks)      │   │
+│  │  Block2: DJEN/Comunica + scraping fallback (opcional)     │   │
+│  │  Block3: análise patrimonial via Claude (opcional)        │   │
+│  │  Block4: internacional — OpenSanctions + UK Companies     │   │
+│  │          House + ICIJ (paralelo à cadeia B1→B2→B3)        │   │
+│  │  Report: markdown; status concluido | concluido_parcial  │   │
 │  └───────────────────────────────────────────────────────────┘   │
+│  Escopo por investigação (opcoes): cada bloco opcional pode ser   │
+│  ligado/desligado; falhas isoladas por bloco → concluido_parcial. │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -126,11 +139,14 @@ Ver [`backend/.env.example`](backend/.env.example) — todas validadas por Zod n
 
 | Fonte | Endpoint | Usada para |
 |---|---|---|
-| BFF CNPJa | `bff.cnpja.com` | CPF → empresas (membership) |
-| BrasilAPI | `brasilapi.com.br/cnpj/v1/` | Detalhe de CNPJ (QSA, capital) |
-| CNPJa Open | `open.cnpja.com/office/` | E-mails e telefones formatados |
-| DJEN CNJ | `comunicaapi.pje.jus.br` | Processos por nome/CPF/empresa |
+| BFF CNPJa | `bff.cnpja.com` | CPF/nome → empresas (membership) |
+| CNPJ.ws | `publica.cnpj.ws` | Detalhe de CNPJ (QSA, capital, contatos) — fonte primária |
+| BrasilAPI / CNPJa Open | `brasilapi.com.br`, `open.cnpja.com` | Fallbacks de detalhe de CNPJ |
+| DJEN CNJ | `comunicaapi.pje.jus.br` | Processos por nome/CPF/empresa (Block 2) |
 | cnpj.biz | scraping | Fallback de CNPJ |
+| OpenSanctions | `api.opensanctions.org` | Sanções/PEP/watchlists (Block 4) |
+| UK Companies House | `find-and-update.company-information.service.gov.uk` | Sociedades no Reino Unido (Block 4) |
+| ICIJ Offshore Leaks | `offshoreleaks.icij.org` (Reconciliation API) | Vínculos offshore + grafo (Block 4) |
 
 Throttling por API via `p-queue` (`apis/queue.ts`). Retry/backoff exponencial em 429/5xx (`apis/http.ts`).
 
@@ -151,9 +167,9 @@ backend/src/
 ├── routes/                 handlers Fastify (validação Zod, sem SQL)
 ├── auth/                   hash, jwt, middleware, bootstrap, routes de /auth
 ├── apis/                   clientes HTTP de fontes externas
-├── blocks/                 lógica de domínio (block1 = empresas, block2 = processos)
+├── blocks/                 lógica de domínio (block1 empresas, block2 processos, block3 IA, block4 internacional)
 ├── report/                 gerador do markdown
-├── worker.ts               orquestrador Block1 → Block2 → relatório
+├── worker.ts               orquestrador Block1→2→3 + Block4 paralelo → relatório
 └── utils/format.ts         formatCpf, formatCnpj, toDate (compartilhados)
 
 frontend/src/
@@ -182,17 +198,20 @@ frontend/src/
 
 ## Banco
 
-10 migrations em `backend/migrations/` aplicadas em ordem alfabética. Tabelas:
+Migrations em `backend/migrations/` aplicadas em ordem alfabética (até `015`). Tabelas:
 
 | Tabela | Conteúdo |
 |---|---|
 | `users` | id, email, password_hash, role, active, must_change_password |
 | `leads` | captação da LP pública |
-| `investigacoes` | nome, cpf, status, progresso JSONB, capital_total, pje_count, warnings |
+| `investigacoes` | nome, cpf, status, progresso JSONB, capital_total, pje_count, warnings, **opcoes** (escopo) e **falhas** JSONB |
 | `empresas` | dados RFB + emails/telefones (JSONB arrays) + qsa + alertas |
-| `processos` | número, classe, tribunal, polo, criminal, vinculo, comunicacoes JSONB |
+| `processos` | número, classe, tribunal, polo, criminal, vinculo, comunicacoes JSONB, **analise_llm** |
 | `processos_advogados` | nome + OAB de cada advogado identificado |
 | `processos_empresas_vinculadas` | PJs associadas no processo |
+| `investigacao_sancoes` | OpenSanctions: entidade, países, programas, listas, aliases (Block 4) |
+| `investigacao_empresas_exterior` | UK Companies House: sociedades no exterior (Block 4) |
+| `investigacao_offshore` | ICIJ: vínculos offshore + **conexoes** JSONB (entidade/endereço/intermediário) |
 | `relatorios` | conteudo_md (markdown completo do dossiê) |
 | `_schema_migrations` | controle de quais migrations já rodaram |
 
@@ -217,7 +236,7 @@ Senha padrão (criada por admin OU reset): **`ivy@2026`** — usuário troca obr
 
 ## Testes
 
-### Backend (97 testes)
+### Backend
 
 ```bash
 # pré-requisito: Postgres rodando
@@ -237,7 +256,7 @@ Cobertura:
 - **Worker E2E** (2): orquestração completa com DB real + APIs mockadas
 - **HTTP retry/backoff** (5): 429×2 → 200 com backoff exponencial validado
 
-### Frontend (63 testes)
+### Frontend
 
 ```bash
 cd frontend
@@ -278,6 +297,9 @@ No primeiro deploy, o backend aplica migrations e cria seu admin automaticamente
 - **Match estrito por nome** no Block2: variações ("Sidnei P. de Jesus" vs "Sidnei Piva de Jesus") podem reduzir cobertura. Match flexível foi avaliado e descartado por gerar falsos positivos.
 - **Junta Comercial** (alterações contratuais, ex-sócios) não está integrada. Sócios antigos não aparecem.
 - **APIs pagas** (Escavador, JusBrasil) não usadas. Sistema 100% sobre fontes públicas gratuitas.
+- **Florida Sunbiz e Miami-Dade Clerk** (Block 4) ficam como verificação manual: Sunbiz está atrás de Cloudflare e o Miami-Dade usa reCAPTCHA v3 com score-gating. Automação pendente (avaliando Puppeteer/Playwright + IP residencial). Ver `TAREFAS2.md`.
+- **Block 1.5** (busca reversa por email/endereço na base da Receita Federal) ainda não implementado — depende de definir a ingestão dos CSVs da Receita.
+- **Empresas de múltiplas fontes** (BR + UK + ICIJ) são unificadas e deduplicadas por nome normalizado em `frontend/.../Relatorio/empresas.ts` — qualquer fonte nova de empresas deve passar por essa regra.
 
 ## Documentos relacionados
 

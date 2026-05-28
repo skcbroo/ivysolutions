@@ -10,6 +10,8 @@ type Props = {
   type?: string
   required?: boolean
   colSpan?: number
+  /** Classes Tailwind de span responsivo (ex.: "col-span-12 md:col-span-6"). Sobrepõe colSpan. */
+  spanClass?: string
   placeholder?: string
   autoComplete?: string
   inputMode?: HTMLAttributes<HTMLInputElement>['inputMode']
@@ -28,6 +30,7 @@ export function Field({
   type = 'text',
   required,
   colSpan = 12,
+  spanClass,
   placeholder,
   autoComplete,
   inputMode,
@@ -47,8 +50,8 @@ export function Field({
   return (
     <label
       htmlFor={id}
-      className="block"
-      style={{ gridColumn: `span ${colSpan} / span ${colSpan}` }}
+      className={`block ${spanClass ?? ''}`}
+      style={spanClass ? undefined : { gridColumn: `span ${colSpan} / span ${colSpan}` }}
     >
       <span className="ivy-meta block mb-2" style={{ color: labelColor }}>
         {label}

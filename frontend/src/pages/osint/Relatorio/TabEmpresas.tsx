@@ -1,73 +1,73 @@
 import { useMemo, useState } from 'react'
 import { useSortable } from '../../../hooks/useSortable'
 import type { InvestigacaoFull } from '../../../lib/osint'
-import { formatBRL, formatCnpj } from './format'
-import { Td, Th } from './shared'
+import { formatBRL } from './format'
+import { Td, Th, EstadoVazio } from './shared'
+import { estadoEmpresas } from './estadoBlocos'
+import { unificarEmpresas, JURIS_LABEL, type EmpresaRow as Row } from './empresas'
 import { FilterBar, FilterChip, SortableTh } from './Tabs'
 
 type ContatoView = 'ambos' | 'email' | 'telefone'
 
-type EmpresaSortKey = 'cnpj14' | 'nome' | 'situacao' | 'capital' | 'cargo'
-type EmpresaFiltro = 'todas' | 'ativas' | 'inaptas' | 'com_alerta'
+type EmpresaSortKey = 'ident' | 'nome' | 'situacao' | 'capital' | 'cargo' | 'jurisdicao'
+type EmpresaFiltro = 'todas' | 'ativas' | 'inaptas' | 'exterior' | 'com_alerta'
 
 export function TabEmpresas({ data }: { data: InvestigacaoFull }) {
   const [contatoView, setContatoView] = useState<ContatoView>('ambos')
   const [filtro, setFiltro] = useState<EmpresaFiltro>('todas')
 
-  // filtragem
+  const rows = useMemo<Row[]>(() => unificarEmpresas(data), [data])
+
   const filtered = useMemo(() => {
-    if (filtro === 'todas') return data.empresas
-    if (filtro === 'ativas') return data.empresas.filter((e) => e.situacao && /ATIVA/i.test(e.situacao))
-    if (filtro === 'inaptas')
-      return data.empresas.filter((e) => e.situacao && !/ATIVA/i.test(e.situacao))
-    return data.empresas.filter((e) => e.alertas.length > 0)
-  }, [data.empresas, filtro])
+    if (filtro === 'ativas') return rows.filter((r) => r.ativa)
+    if (filtro === 'inaptas') return rows.filter((r) => !r.ativa)
+    if (filtro === 'exterior') return rows.filter((r) => r.exterior)
+    if (filtro === 'com_alerta') return rows.filter((r) => r.alertas.length > 0)
+    return rows
+  }, [rows, filtro])
 
-  // ordenação
-  const accessors: Record<EmpresaSortKey, (e: InvestigacaoFull['empresas'][number]) => string | number | null> = {
-    cnpj14: (e) => e.cnpj14,
-    nome: (e) => e.nome,
-    situacao: (e) => e.situacao,
-    capital: (e) => (e.capital == null ? null : Number(e.capital)),
-    cargo: (e) => e.cargo,
+  const accessors: Record<EmpresaSortKey, (r: Row) => string | number | null> = {
+    ident: (r) => r.ident,
+    nome: (r) => r.nome,
+    situacao: (r) => r.situacao,
+    capital: (r) => r.capital,
+    cargo: (r) => r.cargo,
+    jurisdicao: (r) => r.jurisdicao,
   }
-  const { sorted, sort, toggle } = useSortable<InvestigacaoFull['empresas'][number], EmpresaSortKey>(
-    filtered,
-    accessors,
-    { key: 'capital', dir: 'desc' },
-  )
+  const { sorted, sort, toggle } = useSortable<Row, EmpresaSortKey>(filtered, accessors, {
+    key: 'capital',
+    dir: 'desc',
+  })
 
-  if (data.empresas.length === 0) {
-    return (
-      <p className="ivy-meta" style={{ color: 'var(--color-ivy-mid)' }}>
-        Nenhuma empresa registrada.
-      </p>
-    )
+  if (rows.length === 0) {
+    return <EstadoVazio estado={estadoEmpresas(data)} vazioTexto="Nenhuma empresa encontrada." />
   }
 
-  const temEmail = data.empresas.some((e) => (e.emails ?? []).length > 0)
-  const temTel = data.empresas.some((e) => (e.telefones ?? []).length > 0)
-  const countAlertas = data.empresas.filter((e) => e.alertas.length > 0).length
-  const countAtivas = data.empresas.filter((e) => e.situacao && /ATIVA/i.test(e.situacao)).length
+  const temEmail = rows.some((r) => r.emails.length > 0)
+  const temTel = rows.some((r) => r.telefones.length > 0)
+  const countAlertas = rows.filter((r) => r.alertas.length > 0).length
+  const countAtivas = rows.filter((r) => r.ativa).length
+  const countExterior = rows.filter((r) => r.exterior).length
 
   return (
     <>
       <FilterBar>
         <FilterChip active={filtro === 'todas'} onClick={() => setFiltro('todas')}>
-          Todas ({data.empresas.length})
+          Todas ({rows.length})
         </FilterChip>
         <FilterChip active={filtro === 'ativas'} onClick={() => setFiltro('ativas')}>
           Ativas ({countAtivas})
         </FilterChip>
         <FilterChip active={filtro === 'inaptas'} onClick={() => setFiltro('inaptas')}>
-          Inativas / Falidas ({data.empresas.length - countAtivas})
+          Inativas / Falidas ({rows.length - countAtivas})
         </FilterChip>
+        {countExterior > 0 && (
+          <FilterChip active={filtro === 'exterior'} onClick={() => setFiltro('exterior')}>
+            No exterior ({countExterior})
+          </FilterChip>
+        )}
         {countAlertas > 0 && (
-          <FilterChip
-            active={filtro === 'com_alerta'}
-            onClick={() => setFiltro('com_alerta')}
-            tone="blood"
-          >
+          <FilterChip active={filtro === 'com_alerta'} onClick={() => setFiltro('com_alerta')} tone="blood">
             ⚠ Com alerta ({countAlertas})
           </FilterChip>
         )}
@@ -81,7 +81,8 @@ export function TabEmpresas({ data }: { data: InvestigacaoFull }) {
         >
           <thead>
             <tr className="ivy-meta" style={{ color: 'var(--color-ivy-mid)', borderBottom: '1px solid var(--color-ivy-tan)' }}>
-              <SortableTh sortKey="cnpj14" current={sort} onSort={toggle}>CNPJ</SortableTh>
+              <SortableTh sortKey="jurisdicao" current={sort} onSort={toggle}>Juris.</SortableTh>
+              <SortableTh sortKey="ident" current={sort} onSort={toggle}>CNPJ / Reg.</SortableTh>
               <SortableTh sortKey="nome" current={sort} onSort={toggle}>Empresa</SortableTh>
               <SortableTh sortKey="situacao" current={sort} onSort={toggle}>Situação</SortableTh>
               <SortableTh sortKey="capital" current={sort} onSort={toggle} align="right">Capital</SortableTh>
@@ -92,24 +93,27 @@ export function TabEmpresas({ data }: { data: InvestigacaoFull }) {
             </tr>
           </thead>
           <tbody>
-            {sorted.map((e) => (
-              <tr key={e.id} style={{ borderBottom: '1px solid var(--color-ivy-rule-subtle)' }}>
-                <Td mono>{formatCnpj(e.cnpj14)}</Td>
+            {sorted.map((r) => (
+              <tr key={r.key} style={{ borderBottom: '1px solid var(--color-ivy-rule-subtle)' }}>
+                <Td><JurisBadge code={r.jurisdicao} /></Td>
+                <Td mono>{r.ident}</Td>
                 <Td bold>
-                  {e.nome ?? ''}
-                  {e.alertas.length > 0 && (
+                  {r.nome}
+                  <span className="ivy-foot block mt-1" style={{ color: 'var(--color-ivy-mid)' }}>
+                    Fonte: {r.origem}
+                    {r.periodo ? ` · ${r.periodo}` : ''}
+                  </span>
+                  {r.alertas.length > 0 && (
                     <span className="ivy-foot block mt-1" style={{ color: 'var(--color-ivy-blood)' }}>
-                      ⚠ {e.alertas.join(' · ')}
+                      ⚠ {r.alertas.join(' · ')}
                     </span>
                   )}
                 </Td>
-                <Td tone={e.situacao && /ATIVA/i.test(e.situacao) ? 'ok' : 'mid'}>
-                  {e.situacao ?? ''}
-                </Td>
-                <Td align="right" mono>{formatBRL(e.capital)}</Td>
-                <Td>{e.cargo ?? ''}</Td>
+                <Td tone={r.ativa ? 'ok' : 'mid'}>{r.situacao ?? ''}</Td>
+                <Td align="right" mono>{r.capital == null ? '—' : formatBRL(r.capital)}</Td>
+                <Td>{r.cargo ?? ''}</Td>
                 <Td>
-                  <ContatoCell empresa={e} view={contatoView} />
+                  {r.exterior ? <FonteLink url={r.url} /> : <ContatoCell row={r} view={contatoView} />}
                 </Td>
               </tr>
             ))}
@@ -119,79 +123,94 @@ export function TabEmpresas({ data }: { data: InvestigacaoFull }) {
 
       {/* Mobile <md: cada empresa vira um bloco vertical. */}
       <ul className="md:hidden flex flex-col" style={{ borderTop: '1px solid var(--color-ivy-tan)' }}>
-        {sorted.map((e) => {
-          const ativa = e.situacao && /ATIVA/i.test(e.situacao)
-          return (
-            <li
-              key={e.id}
-              className="py-5"
-              style={{ borderBottom: '1px solid var(--color-ivy-rule-subtle)' }}
-            >
-              <div className="flex items-baseline justify-between gap-3">
+        {sorted.map((r) => (
+          <li key={r.key} className="py-5" style={{ borderBottom: '1px solid var(--color-ivy-rule-subtle)' }}>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="flex items-center gap-2">
+                <JurisBadge code={r.jurisdicao} />
                 <span
                   className="ivy-foot"
-                  style={{
-                    color: ativa ? 'var(--color-ivy-olive)' : 'var(--color-ivy-mid)',
-                    letterSpacing: '0.2em',
-                  }}
+                  style={{ color: r.ativa ? 'var(--color-ivy-olive)' : 'var(--color-ivy-mid)', letterSpacing: '0.2em' }}
                 >
-                  {e.situacao ?? 'situação desconhecida'}
+                  {r.situacao ?? 'situação desconhecida'}
                 </span>
-                <span className="ivy-foot" style={{ color: 'var(--color-ivy-mid)', fontVariantNumeric: 'tabular-nums' }}>
-                  {formatCnpj(e.cnpj14)}
-                </span>
+              </span>
+              <span className="ivy-foot" style={{ color: 'var(--color-ivy-mid)', fontVariantNumeric: 'tabular-nums' }}>
+                {r.ident}
+              </span>
+            </div>
+            <p className="mt-2" style={{ color: 'var(--color-ivy-near)', fontWeight: 600, fontSize: 'clamp(15px,4.2vw,18px)', lineHeight: 1.25 }}>
+              {r.nome}
+            </p>
+            <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+              {r.capital != null && <DatumMobile label="Capital" value={formatBRL(r.capital)} />}
+              {r.cargo && <DatumMobile label="Cargo" value={r.cargo} />}
+              {r.periodo && <DatumMobile label="Período" value={r.periodo} />}
+              <DatumMobile label="Fonte" value={r.origem} />
+            </dl>
+            {!r.exterior && (r.emails.length > 0 || r.telefones.length > 0) && (
+              <div className="mt-3 flex flex-col gap-1">
+                {r.emails.map((m) => (
+                  <a key={m} href={`mailto:${m}`} className="ivy-foot" style={{ color: 'var(--color-ivy-near)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                    {m}
+                  </a>
+                ))}
+                {r.telefones.map((t) => (
+                  <a key={t} href={`tel:${t.replace(/\D/g, '')}`} className="ivy-foot" style={{ color: 'var(--color-ivy-mid)', fontVariantNumeric: 'tabular-nums' }}>
+                    {t}
+                  </a>
+                ))}
               </div>
-              <p
-                className="mt-2"
-                style={{
-                  color: 'var(--color-ivy-near)',
-                  fontWeight: 600,
-                  fontSize: 'clamp(15px,4.2vw,18px)',
-                  lineHeight: 1.25,
-                }}
-              >
-                {e.nome ?? 'razão social não localizada'}
+            )}
+            {r.exterior && r.url && (
+              <div className="mt-3">
+                <FonteLink url={r.url} />
+              </div>
+            )}
+            {r.alertas.length > 0 && (
+              <p className="mt-3 ivy-foot" style={{ color: 'var(--color-ivy-blood)' }}>
+                ⚠ {r.alertas.join(' · ')}
               </p>
-              <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
-                {e.capital != null && (
-                  <DatumMobile label="Capital" value={formatBRL(e.capital)} />
-                )}
-                {e.cargo && <DatumMobile label="Cargo" value={e.cargo} />}
-              </dl>
-              {(e.emails?.length || e.telefones?.length) && (
-                <div className="mt-3 flex flex-col gap-1">
-                  {(e.emails ?? []).map((m) => (
-                    <a
-                      key={m}
-                      href={`mailto:${m}`}
-                      className="ivy-foot"
-                      style={{ color: 'var(--color-ivy-near)', textDecoration: 'underline', textUnderlineOffset: 3 }}
-                    >
-                      {m}
-                    </a>
-                  ))}
-                  {(e.telefones ?? []).map((t) => (
-                    <a
-                      key={t}
-                      href={`tel:${t.replace(/\D/g, '')}`}
-                      className="ivy-foot"
-                      style={{ color: 'var(--color-ivy-mid)', fontVariantNumeric: 'tabular-nums' }}
-                    >
-                      {t}
-                    </a>
-                  ))}
-                </div>
-              )}
-              {e.alertas.length > 0 && (
-                <p className="mt-3 ivy-foot" style={{ color: 'var(--color-ivy-blood)' }}>
-                  ⚠ {e.alertas.join(' · ')}
-                </p>
-              )}
-            </li>
-          )
-        })}
+            )}
+          </li>
+        ))}
       </ul>
     </>
+  )
+}
+
+function JurisBadge({ code }: { code: string }) {
+  const exterior = code !== 'BR'
+  return (
+    <span
+      className="ivy-foot"
+      title={JURIS_LABEL[code] ?? code}
+      style={{
+        display: 'inline-block',
+        padding: '2px 7px',
+        letterSpacing: '0.15em',
+        border: `1px solid ${exterior ? 'var(--color-ivy-olive)' : 'var(--color-ivy-tan)'}`,
+        color: exterior ? 'var(--color-ivy-olive)' : 'var(--color-ivy-mid)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {code}
+    </span>
+  )
+}
+
+function FonteLink({ url }: { url: string | null }) {
+  if (!url) return <span style={{ color: 'var(--color-ivy-mid)' }}>—</span>
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="ivy-foot"
+      style={{ color: 'var(--color-ivy-olive)', textDecoration: 'underline', textUnderlineOffset: 3 }}
+    >
+      Companies House →
+    </a>
   )
 }
 
@@ -206,7 +225,6 @@ export function ContatoToggle({
   hasEmail: boolean
   hasTel: boolean
 }) {
-  // Se só tem um tipo, não mostra toggle — fixa o label da coluna.
   if (!hasEmail && !hasTel) return <span>Contato</span>
   if (!hasEmail) return <span>Telefone</span>
   if (!hasTel) return <span>Email</span>
@@ -246,9 +264,9 @@ export function ContatoToggle({
   )
 }
 
-export function ContatoCell({ empresa, view }: { empresa: InvestigacaoFull['empresas'][number]; view: ContatoView }) {
-  const emails = empresa.emails ?? []
-  const tels = empresa.telefones ?? []
+export function ContatoCell({ row, view }: { row: { emails: string[]; telefones: string[] }; view: ContatoView }) {
+  const emails = row.emails ?? []
+  const tels = row.telefones ?? []
   if (emails.length === 0 && tels.length === 0) {
     return <span style={{ color: 'var(--color-ivy-mid)' }}>—</span>
   }
@@ -257,10 +275,7 @@ export function ContatoCell({ empresa, view }: { empresa: InvestigacaoFull['empr
   return (
     <div className="flex flex-col gap-0.5">
       {showEmail && emails[0] && (
-        <a
-          href={`mailto:${emails[0]}`}
-          style={{ color: 'var(--color-ivy-near)', textDecoration: 'underline', textUnderlineOffset: 3 }}
-        >
+        <a href={`mailto:${emails[0]}`} style={{ color: 'var(--color-ivy-near)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
           {emails[0]}
           {emails.length > 1 && (
             <span className="ml-2 ivy-foot" style={{ color: 'var(--color-ivy-mid)' }}>
@@ -270,11 +285,7 @@ export function ContatoCell({ empresa, view }: { empresa: InvestigacaoFull['empr
         </a>
       )}
       {showTel && tels[0] && (
-        <a
-          href={`tel:${tels[0].replace(/\D/g, '')}`}
-          className="ivy-foot"
-          style={{ color: 'var(--color-ivy-mid)', fontVariantNumeric: 'tabular-nums' }}
-        >
+        <a href={`tel:${tels[0].replace(/\D/g, '')}`} className="ivy-foot" style={{ color: 'var(--color-ivy-mid)', fontVariantNumeric: 'tabular-nums' }}>
           {tels[0]}
           {tels.length > 1 && (
             <span className="ml-2" style={{ color: 'var(--color-ivy-mid)' }}>
@@ -291,14 +302,7 @@ function DatumMobile({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <dt className="ivy-foot" style={{ color: 'var(--color-ivy-mid)' }}>{label}</dt>
-      <dd
-        style={{
-          color: 'var(--color-ivy-near)',
-          fontSize: 14,
-          margin: 0,
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
+      <dd style={{ color: 'var(--color-ivy-near)', fontSize: 14, margin: 0, fontVariantNumeric: 'tabular-nums' }}>
         {value}
       </dd>
     </div>

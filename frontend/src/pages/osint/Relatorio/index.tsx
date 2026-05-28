@@ -5,8 +5,11 @@ import { StatusBadge } from '../../../components/osint/StatusBadge'
 import { useVisibleInterval } from '../../../hooks/useVisibleInterval'
 import { isAbortError, osintApi, type InvestigacaoFull } from '../../../lib/osint'
 import { DossieProtocolo } from './DossieProtocolo'
-import { formatBRL, formatDateTime } from './format'
+import { formatDateTime } from './format'
+import { unificarEmpresas } from './empresas'
 import { RunningPanel } from './RunningPanel'
+import { SancoesFlag } from './SancoesFlag'
+import { OffshoreFlag } from './OffshoreFlag'
 import { TabEmpresas } from './TabEmpresas'
 import { TabProcessos } from './TabProcessos'
 import { TabRelatorio } from './TabRelatorio'
@@ -17,6 +20,15 @@ import { panelId, tabId, TabPanel, Tabs, type Tab } from './Tabs'
 export { Tabs } from './Tabs'
 export { SortableTh, FilterChip } from './Tabs'
 export { ContatoToggle, ContatoCell } from './TabEmpresas'
+
+const isFinal = (s: string) => s === 'concluido' || s === 'concluido_parcial' || s === 'erro'
+
+const BLOCO_LABEL: Record<string, string> = {
+  block1: 'Sociedades',
+  block2: 'Processos',
+  block3: 'Análise patrimonial (IA)',
+  block4: 'Buscas internacionais',
+}
 
 export function Relatorio() {
   const { id } = useParams()
@@ -36,7 +48,7 @@ export function Relatorio() {
       const d = await osintApi.buscar(id, ctl.signal)
       setData(d)
       setError(null)
-      if (d.status === 'concluido' || d.status === 'erro') doneRef.current = true
+      if (isFinal(d.status)) doneRef.current = true
     } catch (err) {
       if (isAbortError(err)) return
       setError(err instanceof Error ? err.message : 'erro de rede')
@@ -62,7 +74,7 @@ export function Relatorio() {
             }
           : prev,
       )
-      if (s.status === 'concluido' || s.status === 'erro') {
+      if (isFinal(s.status)) {
         doneRef.current = true
         await loadFull()
       }
@@ -133,7 +145,6 @@ export function Relatorio() {
 
   const isRunning = data.status === 'rodando' || data.status === 'pendente'
   const totalProcessos = data.processos.length || (data.pje_count ?? 0)
-  const criminais = data.processos.filter((p) => p.criminal).length
 
   return (
     <OsintLayout
@@ -175,6 +186,30 @@ export function Relatorio() {
           </div>
         )}
 
+        <SancoesFlag sancoes={data.sancoes ?? []} />
+        <OffshoreFlag offshore={data.offshore ?? []} />
+
+        {data.status === 'concluido_parcial' && (data.falhas?.length ?? 0) > 0 && (
+          <div
+            className="mb-10 p-6"
+            style={{ border: '1px solid var(--color-ivy-blood)', background: 'oklch(0.36 0.135 28 / 0.06)' }}
+          >
+            <p className="ivy-meta" style={{ color: 'var(--color-ivy-blood)' }}>
+              ⚠ Investigação concluída parcialmente
+            </p>
+            <p className="mt-2" style={{ color: 'var(--color-ivy-mid)', fontSize: 14, lineHeight: 1.5 }}>
+              Alguns blocos falharam e foram omitidos. O restante do dossiê está completo.
+            </p>
+            <ul className="ivy-list mt-3" style={{ color: 'var(--color-ivy-near)' }}>
+              {data.falhas.map((f, i) => (
+                <li key={i} style={{ fontSize: 'clamp(14px,1vw,16px)', lineHeight: 1.5 }}>
+                  <strong>{BLOCO_LABEL[f.bloco] ?? f.bloco}:</strong> {f.msg}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {data.status === 'erro' && data.erro_msg && (
           <div
             className="mb-10 p-6 border"
@@ -189,18 +224,16 @@ export function Relatorio() {
           </div>
         )}
 
-        <DossieProtocolo
-          empresas={data.empresas.length}
-          capital={formatBRL(data.capital_total)}
-          processos={totalProcessos}
-          criminais={criminais}
-        />
+        <DossieProtocolo data={data} />
         <hr className="ivy-rule-olive mb-10" />
 
         <Tabs
           tab={tab}
           onChange={setTab}
-          counts={{ empresas: data.empresas.length, processos: totalProcessos }}
+          counts={{
+            empresas: unificarEmpresas(data).length,
+            processos: totalProcessos,
+          }}
         />
 
         {/* Os 3 painéis ficam SEMPRE no DOM (com hidden quando inativos)

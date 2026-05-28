@@ -2,11 +2,13 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { requireAuth } from '../auth/middleware.js'
 import { runWorker } from '../worker.js'
+import { capabilities, OpcoesSchema } from '../opcoes.js'
 import { formatCpf } from '../utils/format.js'
 import * as investigacoesRepo from '../repos/investigacoes.js'
 import * as empresasRepo from '../repos/empresas.js'
 import * as processosRepo from '../repos/processos.js'
 import * as relatoriosRepo from '../repos/relatorios.js'
+import * as internacionalRepo from '../repos/internacional.js'
 
 const CreateInput = z.object({
   nome: z.string().trim().min(3).max(120),
@@ -14,20 +16,25 @@ const CreateInput = z.object({
     .string()
     .transform((s) => s.replace(/\D/g, ''))
     .pipe(z.string().regex(/^\d{11}$/, 'CPF deve ter 11 dígitos')),
+  opcoes: OpcoesSchema.optional(),
 })
 
 export async function investigacoesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', requireAuth)
+
+  // Quais blocos/fontes estão disponíveis (têm chave/flag) — o formulário só
+  // mostra toggles do que dá pra ligar.
+  app.get('/investigacoes/capabilities', async () => capabilities())
 
   app.post('/investigacoes', async (request, reply) => {
     const parse = CreateInput.safeParse(request.body)
     if (!parse.success) {
       return reply.code(400).send({ error: 'invalid_input', fields: parse.error.flatten().fieldErrors })
     }
-    const { nome, cpf } = parse.data
+    const { nome, cpf, opcoes } = parse.data
     const userId = request.user?.userId ?? null
 
-    const inv = await investigacoesRepo.create({ nome, cpf, createdBy: userId })
+    const inv = await investigacoesRepo.create({ nome, cpf, createdBy: userId, opcoes })
 
     // Fire-and-forget: erros marcam status='erro' no banco.
     runWorker(Number(inv.id)).catch(async (err) => {
@@ -79,13 +86,17 @@ export async function investigacoesRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: 'not_found' })
     }
 
-    const [empresas, processos, advogados, vinculadas, relatorio] = await Promise.all([
-      empresasRepo.findByInvestigacao(id),
-      processosRepo.findByInvestigacao(id),
-      processosRepo.findAdvogados(id),
-      processosRepo.findEmpresasVinculadas(id),
-      relatoriosRepo.findByInvestigacao(id),
-    ])
+    const [empresas, processos, advogados, vinculadas, relatorio, sancoes, empresasExterior, offshore] =
+      await Promise.all([
+        empresasRepo.findByInvestigacao(id),
+        processosRepo.findByInvestigacao(id),
+        processosRepo.findAdvogados(id),
+        processosRepo.findEmpresasVinculadas(id),
+        relatoriosRepo.findByInvestigacao(id),
+        internacionalRepo.listSancoes(id),
+        internacionalRepo.listEmpresasExterior(id),
+        internacionalRepo.listOffshore(id),
+      ])
 
     return {
       ...investigacao,
@@ -94,6 +105,9 @@ export async function investigacoesRoutes(app: FastifyInstance) {
       processos,
       advogados,
       empresas_vinculadas: vinculadas,
+      sancoes,
+      empresas_exterior: empresasExterior,
+      offshore,
       relatorio_md: relatorio?.conteudo_md ?? null,
       relatorio_gerado_em: relatorio?.gerado_em ?? null,
     }
