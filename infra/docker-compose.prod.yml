@@ -27,6 +27,9 @@ services:
     volumes:
       # bind mount num SUBDIR do volume; /mnt/rfb/work fica livre p/ scratch do ETL
       - /mnt/rfb/pgdata:/var/lib/postgresql/data
+    # /dev/shm do container Docker e 64MB por padrao -> VACUUM/parallel queries
+    # tomam "No space left on device" ao alocar segmento de shm grande. 1g cobre.
+    shm_size: 1gb
     # Tuning p/ bulk load mensal + leitura. Ajuste aos GB de RAM da VM.
     # synchronous_commit=off acelera a carga; a base e derivada/recarregavel,
     # entao perda no crash so significa re-rodar o ETL.
