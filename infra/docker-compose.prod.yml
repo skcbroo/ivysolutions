@@ -14,6 +14,42 @@ services:
       timeout: 5s
       retries: 10
 
+  # Base RFB (Dados Abertos CNPJ). Postgres dedicado, dados no block volume
+  # dedicado montado em /mnt/rfb. Isolado do `db` do app: carga pesada mensal
+  # nao concorre por I/O nem por espaco com o banco da aplicacao.
+  db-rfb:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${RFB_DB_NAME:-rfb}
+      POSTGRES_USER: ${RFB_DB_USER}
+      POSTGRES_PASSWORD: ${RFB_DB_PASSWORD}
+    volumes:
+      # bind mount num SUBDIR do volume; /mnt/rfb/work fica livre p/ scratch do ETL
+      - /mnt/rfb/pgdata:/var/lib/postgresql/data
+    # Tuning p/ bulk load mensal + leitura. Ajuste aos GB de RAM da VM.
+    # synchronous_commit=off acelera a carga; a base e derivada/recarregavel,
+    # entao perda no crash so significa re-rodar o ETL.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - work_mem=64MB
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - checkpoint_timeout=30min
+      - -c
+      - synchronous_commit=off
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${RFB_DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: ../backend
@@ -26,6 +62,8 @@ services:
       NODE_ENV: production
       PORT: 3002
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Base RFB (read-only p/ o app). Vazia ate a 1a carga do ETL.
+      DATABASE_URL_RFB: postgresql://${RFB_DB_USER}:${RFB_DB_PASSWORD}@db-rfb:5432/${RFB_DB_NAME:-rfb}
       DATABASE_SSL: "false"
       CORS_ORIGIN: ${PUBLIC_URL}
       JWT_SECRET: ${JWT_SECRET}
