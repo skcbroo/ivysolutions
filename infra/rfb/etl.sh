@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # ETL mensal da base RFB (Dados Abertos CNPJ) -> Postgres `db-rfb`.
 #
+# Fonte: mirror Casa dos Dados (CDN). Cópia mensal fiel da Receita Federal.
+# Diretorios sao AAAA-MM-DD (data do snapshot). Proveniencia registrada no log.
+# O portal oficial (arquivos.receitafederal.gov.br) bloqueia automacao (WAF F5).
+#
 # Fluxo:
 #   1. lock (nao roda concorrente)
-#   2. descobre o mes mais recente (ou usa $1 = AAAA-MM)
+#   2. descobre o snapshot mais recente do mirror (ou usa $1 = AAAA-MM-DD)
 #   3. baixa todos os .zip do mes -> /mnt/rfb/work  (base segue NO AR durante o download)
 #   4. [INICIO DA JANELA] recria o schema rfb vazio (drop do mes antigo)
 #   5. por tipo: unzip -> \copy p/ staging text -> INSERT..SELECT (cast/subset) -> drop staging
@@ -20,7 +24,7 @@
 # Notificacao de falha: o script sai !=0 e loga em stderr. Configure MAILTO=
 # no crontab p/ receber email (forma padrao do cron). Opcional: $ALERT_WEBHOOK.
 #
-# Uso:  ./etl.sh [AAAA-MM]
+# Uso:  ./etl.sh [AAAA-MM-DD]   # data do snapshot do mirror
 set -euo pipefail
 
 # --- config (sobrescrevivel por env) -------------------------------------
@@ -28,7 +32,8 @@ COMPOSE_FILE="${COMPOSE_FILE:-/home/ubuntu/ivy/infra/docker-compose.prod.yml}"
 WORKDIR="${WORKDIR:-/mnt/rfb/work}"
 LOGDIR="${LOGDIR:-/mnt/rfb/logs}"
 SQLDIR="${SQLDIR:-$(cd "$(dirname "$0")" && pwd)/sql}"
-BASE_URL="${BASE_URL:-https://arquivos.receitafederal.gov.br/dados/cnpj/dados_abertos_cnpj}"
+BASE_URL="${BASE_URL:-https://dados-abertos-rf-cnpj.casadosdados.com.br/arquivos}"
+HTTP_UA="${HTTP_UA:-IVY-OSINT/1.0 (+ivysolutions.com.br)}"
 RFB_DB_NAME="${RFB_DB_NAME:-rfb}"
 RFB_DB_USER="${RFB_DB_USER:-rfb}"
 LOCKFILE="/tmp/rfb-etl.lock"
@@ -58,13 +63,17 @@ psql_x() { $DC exec -T db-rfb psql -U "$RFB_DB_USER" -d "$RFB_DB_NAME" -v ON_ERR
 exec 9>"$LOCKFILE"
 flock -n 9 || { log "Outra carga em andamento. Abortando."; exit 0; }
 
-# --- 1. mes ---------------------------------------------------------------
+# --- 1. snapshot do mirror (AAAA-MM-DD) -----------------------------------
 MES="${1:-}"
 if [ -z "$MES" ]; then
-  MES=$(curl -fsS "$BASE_URL/" | grep -oE '[0-9]{4}-[0-9]{2}/' | tr -d '/' | sort | tail -1)
+  MES=$(curl -fsS -A "$HTTP_UA" "$BASE_URL/" \
+        | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}/' | tr -d '/' | sort | tail -1)
 fi
-[ -n "$MES" ] || { log "Nao consegui determinar o mes."; exit 1; }
-log "Mes alvo: $MES"
+[ -n "$MES" ] || { log "Nao consegui determinar o snapshot mais recente."; exit 1; }
+log "Snapshot alvo: $MES"
+# Proveniencia (fica no log e no /docs/base-empresas.md futuro).
+log "Fonte: Receita Federal (Dados Abertos CNPJ) via mirror Casa dos Dados."
+log "       snapshot=$MES  base=$BASE_URL/$MES/  mirror=https://dados-abertos-rf-cnpj.casadosdados.com.br"
 
 # Resiliencia: um arquivo com problema nao derruba a carga inteira. Falhas vao
 # pro ERROR_LOG e incrementam DEGRADED; no fim o script sai !=0 (cron avisa).
@@ -73,7 +82,7 @@ ERROR_LOG="$LOGDIR/erros-$MES.txt"
 DEGRADED=0
 
 # --- 2. lista os zips do mes ----------------------------------------------
-mapfile -t ZIPS < <(curl -fsS "$BASE_URL/$MES/" \
+mapfile -t ZIPS < <(curl -fsS -A "$HTTP_UA" "$BASE_URL/$MES/" \
   | grep -oiE 'href="[^"]+\.zip"' | sed -E 's/.*href="//I;s/".*//' | sort -u)
 [ "${#ZIPS[@]}" -gt 0 ] || { log "Nenhum .zip listado em $MES."; exit 1; }
 log "Arquivos no mes: ${#ZIPS[@]}"
@@ -102,7 +111,7 @@ log "Baixando para $WORKDIR ..."
 for f in "${ZIPS[@]}"; do
   t=$(tipo_de "$f"); [ "$t" = skip ] && continue
   in_types "$t" || continue
-  wget -c -q -P "$WORKDIR" "$BASE_URL/$MES/$f"
+  wget -c -q -U "$HTTP_UA" -P "$WORKDIR" "$BASE_URL/$MES/$f"
 done
 log "Download concluido."
 
