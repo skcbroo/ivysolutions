@@ -189,7 +189,9 @@ done
 log "Criando indices..."
 $DC exec -T db-rfb psql -U "$RFB_DB_USER" -d "$RFB_DB_NAME" -v ON_ERROR_STOP=1 < "$SQLDIR/02_indexes.sql"
 log "VACUUM ANALYZE..."
-psql_x -c "DROP SCHEMA IF EXISTS rfb_stg CASCADE; VACUUM ANALYZE;"
+# VACUUM nao roda em transacao -> chamadas separadas (psql -c "a; b" envelopa em txn).
+psql_x -c "DROP SCHEMA IF EXISTS rfb_stg CASCADE;"
+psql_x -c "VACUUM ANALYZE;"
 
 # --- 7. limpeza -----------------------------------------------------------
 log "Limpando scratch..."
