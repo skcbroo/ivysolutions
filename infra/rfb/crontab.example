@@ -1,0 +1,8 @@
+# Carga mensal da base RFB. Instalar com:  crontab -e
+#
+# MAILTO faz o cron enviar email se o script sair com erro (stderr).
+MAILTO="gbevi281@gmail.com"
+#
+# Dia 12 as 03:00 (madrugada). A Receita publica por volta do dia 10-12;
+# margem de seguranca. Roda em ~horario de baixo uso (janela aceita).
+0 3 12 * * RFB_DB_USER=rfb RFB_DB_PASSWORD=<senha> /home/ubuntu/ivy/infra/rfb/etl.sh >> /mnt/rfb/logs/cron.log 2>&1
